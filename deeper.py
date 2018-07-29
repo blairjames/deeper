@@ -1,4 +1,4 @@
-#!/bin/python3
+#!/usr/bin/env python36
 
 import argparse
 import os
