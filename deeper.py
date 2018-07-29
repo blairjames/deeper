@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
 import argparse
-import os
 import asyncio
+import os
 import sys
 
 
@@ -11,7 +11,8 @@ class Deeper:
     def __init__(self):
         try:
             self.loop = asyncio.get_event_loop()
-            self.command, self.min, self.max = self.get_args()
+            self.command, self.port_range = self.get_args()
+            self.min, self.max = self.port_range.split("-")
             self.logfile = os.getcwd() + "/deeper.log"
         except Exception as e:
             print("Error! in __init__: " + str(e))
@@ -29,18 +30,18 @@ class Deeper:
         try:
             os.system("reset")
             args = argparse.ArgumentParser()
-            args.add_argument("nmap_command", help="nmap command without ports", type=str)
-            args.add_argument("start", help="start of port range", type=int, default=1)
-            args.add_argument("end", help="end of port range", type=int, default=500)
+            args.add_argument("nmap_command", help="nmap command with no ports specified. "
+                                                   "\"Must be enclosed in quotes\"", type=str)
+            args.add_argument("port_range", help="port range eg. \"80-443\"", type=str, default="17-500")
             parsed = args.parse_args()
-            return parsed.nmap_command, parsed.start, parsed.end
+            return parsed.nmap_command, parsed.port_range
         except Exception as e:
             print("Error! in get_args: " + str(e))
 
 
     async def get_ports(self):
         try:
-            ports = (str(i) for i in range(self.min-1, self.max+1))
+            ports = (str(i) for i in range(int(self.min)-1, int(self.max)+1))
             return ports
         except Exception as e:
             print("Error! in get_ports: " + str(e))
@@ -64,25 +65,33 @@ class Deeper:
 
     def display_results(self):
         try:
+            import time
+            t1 = time.perf_counter()
             with open(self.logfile, "r") as file:
                 ports = [l for l in file.readlines() if "tcp" in l or "udp" in l
                          or "closed" in l or "filtered" in l or "open" in l]
-                [print(p) for p in ports]
                 closed = [p for p in ports if "closed" in p]
                 filter = [p for p in ports if "filter" in p]
                 open_ports = [p for p in ports if "open" in p and not "closed" in p and not "filter" in p]
+                total = len(ports)
                 num_cl = len(closed)
                 num_fl = len(filter)
                 num_op = len(open_ports)
-                print("\n*******************")
+                print("\n*****************************************")
                 print("Command: \"" + self.command + "\"")
-                print("*******************\nTotal Ports Scanned: " + str((num_cl + num_fl + num_op)))
+                print("*****************************************\n"
+                      "Total Ports Scanned: " + str(total))
                 print("Closed: " + str(num_cl))
                 print("Filtered: " + str(num_fl))
                 print("Open: " + str(num_op))
-                print("\n***** Open Ports from " + self.command + " *****")
-                [print(o.rstrip()) for o in open_ports]
-                print("***********************************")
+                if num_op > 0:
+                    print("\n********* Open Ports from *********")
+                    [print(o.rstrip()) for o in open_ports]
+                    print("***********************************")
+                else:
+                    print("\nNo ports discovered open. :(")
+            t2 = time.perf_counter()
+            print("\nTime to calculate and display results: " + str(round(t2-t1, 4)) + "sec")
             os.system("stty sane")
         except Exception as e:
             print("Error! in display_results: " + str(e))
@@ -101,16 +110,19 @@ def check_python_version():
 
 if __name__ == '__main__':
     try:
+        import time
         check_python_version()
+        t1 = time.perf_counter()
         new_Nmap = Deeper()
         new_Nmap.clear_files()
-        print("\nProcessing... hold onto your ass.\n\nThis bitch is hungry. "
-              "Your system may become temporarily unresponsive.\nSave your work!")
+        print("\nWARNING! This program intentionally utalises maximum system resources for performance.\n"
+              "Your system may become unresponsive.")
         loopy = asyncio.get_event_loop()
         loopy.run_until_complete(new_Nmap.loop.create_task(new_Nmap.controller()))
-        import time
-        time.sleep(2)
+        t2 = time.perf_counter()
+        print("\nTotal Execution Time: " + str(round(t2-t1, 4)) + "sec\n")
+        print("Calculating results..")
+        time.sleep(3)
         new_Nmap.display_results()
-        os.system("stty sane")
     except Exception as e:
         print("Error! in display_results: " + str(e))
