@@ -30,7 +30,7 @@ class Deeper:
             print("Error! in cliargs: " + str(e))
 
     async def get_ports(self):
-        ports = (str(i) for i in range(self.min, self.max+1))
+        ports = (str(i) for i in range(self.min-1, self.max+1))
         return ports
 
     async def command_runner(self, port):
