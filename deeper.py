@@ -1,4 +1,4 @@
-#!/usr/bin/env python36
+#!/usr/bin/env python3
 
 import argparse
 import os
@@ -70,7 +70,7 @@ class Deeper:
 if __name__ == '__main__':
     new_Nmap = Deeper()
     new_Nmap.clear_files()
-    print("\nProcessing... hold onto your ass.")
+    print("\nProcessing... hold onto your ass.\n This bitch is hungry. Your system may become temporarily unresponsive.\n Save your work!")
     loopy = asyncio.get_event_loop()
     loopy.run_until_complete(new_Nmap.loop.create_task(new_Nmap.controller()))
     import time
