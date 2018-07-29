@@ -5,14 +5,13 @@ import os
 import asyncio
 
 
-class NmapSpeedTest:
+class Deeper:
 
     def __init__(self):
         self.loop = asyncio.get_event_loop()
-        self.ip, self.min, self.max = self.get_args()
-        self.logfile = os.getcwd() + "/nmap_speed_test.log"
-        self.pids = []
-        self.apd = self.pids.append
+        self.command, self.min, self.max = self.get_args()
+        self.logfile = os.getcwd() + "/deeper.log"
+
 
     def clear_files(self):
         with open(self.logfile, "w") as file:
@@ -22,11 +21,11 @@ class NmapSpeedTest:
         try:
             os.system("reset")
             args = argparse.ArgumentParser()
-            args.add_argument("ip", help="address to scan.", type=str)
-            args.add_argument("--min", help="port start", type=int, default=1)
-            args.add_argument("--max", help="port end", type=int, default=655)
+            args.add_argument("nmap_command", help="nmap command without ports", type=str)
+            args.add_argument("start", help="start of port range", type=int, default=1)
+            args.add_argument("end", help="end of port range", type=int, default=500)
             parsed = args.parse_args()
-            return parsed.ip, parsed.min, parsed.max
+            return parsed.nmap_command, parsed.start, parsed.end
         except Exception as e:
             print("Error! in cliargs: " + str(e))
 
@@ -36,7 +35,7 @@ class NmapSpeedTest:
 
     async def command_runner(self, port):
         try:
-            cmd = ("nmap -T3 -sS -Pn " + self.ip + " -p " + port + " >> " + self.logfile)
+            cmd = (self.command + " -p " + port + " >> " + self.logfile)
             await asyncio.create_subprocess_shell(cmd=cmd, stdout=asyncio.subprocess.PIPE, loop=self.loop)
         except Exception as e:
             print("Error in runner: " + str(e))
@@ -69,7 +68,7 @@ class NmapSpeedTest:
 
 
 if __name__ == '__main__':
-    new_Nmap = NmapSpeedTest()
+    new_Nmap = Deeper()
     new_Nmap.clear_files()
     print("\nProcessing... hold onto your ass.")
     loopy = asyncio.get_event_loop()
