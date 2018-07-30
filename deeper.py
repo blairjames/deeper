@@ -32,16 +32,23 @@ class Deeper:
             args = argparse.ArgumentParser()
             args.add_argument("nmap_command", help="nmap command with no ports specified. "
                                                    "\"Must be enclosed in quotes\"", type=str)
-            args.add_argument("port_range", help="port range eg. \"80-443\"", type=str, default="17-500")
+            args.add_argument("port_range", help="port range eg. \"80-443\"", type=str)
             parsed = args.parse_args()
-            return parsed.nmap_command, parsed.port_range
+            if not "-" in parsed.port_range:
+                print("\nPlease specify a range of ports. \"1-1024\"")
+                exit(1)
+            if len(parsed.nmap_command) < 79 and len(parsed.port_range) < 11:
+                return parsed.nmap_command, parsed.port_range
+            else:
+                print("\nTry Harder..\n")
+                exit(1)
         except Exception as e:
             print("Error! in get_args: " + str(e))
 
 
     async def get_ports(self):
         try:
-            ports = (str(i) for i in range(int(self.min)-1, int(self.max)+1))
+            ports = (str(i) for i in range(int(self.min), int(self.max)+1))
             return ports
         except Exception as e:
             print("Error! in get_ports: " + str(e))
@@ -66,20 +73,23 @@ class Deeper:
     def display_results(self):
         try:
             import time
+            time.sleep(10)
             t1 = time.perf_counter()
             with open(self.logfile, "r") as file:
-                ports = [l for l in file.readlines() if "tcp" in l or "udp" in l
+                logs = file.readlines()
+                ports = [l for l in logs if "tcp" in l or "udp" in l
                          or "closed" in l or "filtered" in l or "open" in l]
+                [print(p.rstrip("\n")) for p in sorted(ports)]
                 closed = [p for p in ports if "closed" in p]
                 filter = [p for p in ports if "filter" in p]
                 open_ports = [p for p in ports if "open" in p and not "closed" in p and not "filter" in p]
-                total = len(ports)
+                total = sum([1 for l in logs if "PORT    STATE    SERVICE" in l])
                 num_cl = len(closed)
                 num_fl = len(filter)
                 num_op = len(open_ports)
-                print("\n*****************************************")
-                print("Command: \"" + self.command + "\"")
-                print("*****************************************\n"
+                print("\n******************************************************")
+                print("Command: \"" + self.command + " -p " + str(self.port_range) + "\"")
+                print("******************************************************\n"
                       "Total Ports Scanned: " + str(total))
                 print("Closed: " + str(num_cl))
                 print("Filtered: " + str(num_fl))
@@ -91,7 +101,7 @@ class Deeper:
                 else:
                     print("\nNo ports discovered open. :(")
             t2 = time.perf_counter()
-            print("\nTime to calculate and display results: " + str(round(t2-t1, 4)) + "sec")
+            print("\nTime to calculate and display results: " + str(round(t2-t1, 4)) + "sec\n")
             os.system("stty sane")
         except Exception as e:
             print("Error! in display_results: " + str(e))
@@ -102,7 +112,7 @@ def check_python_version():
         x, y, z, a, b = sys.version_info
         ver = str(x) + str(y)
         if int(ver) < 36:
-            print("\nThis application requires Python 3.6 or greater.\n")
+            print("\nThis application requires Python 3.6 or greater.\nhttps://www.python.org/downloads/\n")
             exit(0)
     except Exception as e:
         print("Error! in check_python_version: " + str(e))
@@ -122,7 +132,6 @@ if __name__ == '__main__':
         t2 = time.perf_counter()
         print("\nTotal Execution Time: " + str(round(t2-t1, 4)) + "sec\n")
         print("Calculating results..")
-        time.sleep(3)
         new_Nmap.display_results()
     except Exception as e:
         print("Error! in display_results: " + str(e))
