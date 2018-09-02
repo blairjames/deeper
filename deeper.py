@@ -37,7 +37,7 @@ class Deeper:
             if not "-" in parsed.port_range:
                 print("\nPlease specify a range of ports. \"1-1024\"")
                 exit(1)
-            if len(parsed.nmap_command) < 79 and len(parsed.port_range) < 11:
+            if len(parsed.nmap_command) < 79 and len(parsed.port_range) < 12:
                 return parsed.nmap_command, parsed.port_range
             else:
                 print("\nTry Harder..\n")
@@ -61,7 +61,6 @@ class Deeper:
         except Exception as e:
             print("Error in command_runner: " + str(e))
 
-
     async def controller(self):
         try:
             ports = await self.get_ports()
@@ -73,7 +72,6 @@ class Deeper:
     def display_results(self):
         try:
             import time
-            time.sleep(10)
             t1 = time.perf_counter()
             with open(self.logfile, "r") as file:
                 logs = file.readlines()
@@ -83,7 +81,7 @@ class Deeper:
                 closed = [p for p in ports if "closed" in p]
                 filter = [p for p in ports if "filter" in p]
                 open_ports = [p for p in ports if "open" in p and not "closed" in p and not "filter" in p]
-                total = sum([1 for l in logs if "PORT    STATE    SERVICE" in l])
+                total = sum([1 for l in logs if "PORT" in l and "STATE" in l and "SERVICE" in l])
                 num_cl = len(closed)
                 num_fl = len(filter)
                 num_op = len(open_ports)
@@ -102,7 +100,6 @@ class Deeper:
                     print("\nNo ports discovered open. :(")
             t2 = time.perf_counter()
             print("\nTime to calculate and display results: " + str(round(t2-t1, 4)) + "sec\n")
-            os.system("stty sane")
         except Exception as e:
             print("Error! in display_results: " + str(e))
 
@@ -133,5 +130,9 @@ if __name__ == '__main__':
         print("\nTotal Execution Time: " + str(round(t2-t1, 4)) + "sec\n")
         print("Calculating results..")
         new_Nmap.display_results()
+        time.sleep(0.5)
+        os.system("stty sane")
+
     except Exception as e:
         print("Error! in display_results: " + str(e))
+
