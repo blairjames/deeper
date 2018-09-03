@@ -82,7 +82,7 @@ class Deeper:
                 closed = [p for p in ports if "closed" in p]
                 filter = [p for p in ports if "filter" in p]
                 open_ports = [p for p in ports if "open" in p and not "closed" in p and not "filter" in p]
-                total = sum([1 for l in logs if "PORT" in l and "STATE" in l and "SERVICE" in l])
+                total = len(ports)
                 num_cl = len(closed)
                 num_fl = len(filter)
                 num_op = len(open_ports)
@@ -130,8 +130,9 @@ if __name__ == '__main__':
         t2 = time.perf_counter()
         print("\nTotal Execution Time: " + str(round(t2-t1, 4)) + "sec\n")
         print("Calculating results..")
+        time.sleep(1)
         new_Nmap.display_results()
-        time.sleep(0.5)
+        time.sleep(1)
         os.system("stty sane")
 
     except Exception as e:
