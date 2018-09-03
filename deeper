@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import concurrent.futures
 import os
 import sys
 import time
@@ -67,10 +68,11 @@ class Deeper:
 
     async def controller(self):
         try:
-            ports = await self.get_ports()
-            loop = asyncio.get_event_loop()
-            tasks = [await loop.create_task(self.command_runner(p)) for p in ports]
-            loop.run_until_complete(tasks)
+            #generator put in the comprehension
+            #ports = await self.get_ports()
+            tasks = (await self.loop.create_task(self.command_runner(p)) for p in await self.get_ports())
+            return tasks
+            #self.loop.run_until_complete(tasks)
         except Exception as e:
             print("Error! in controller: " + str(e))
 
@@ -128,8 +130,8 @@ if __name__ == '__main__':
         new_Nmap.clear_files()
         print("\nWARNING! This program intentionally utalises system resources for performance.\n"
               "Your system may become temporarily unresponsive.\nProcessing..")
-        loopy = new_Nmap.loop
-        loopy.run_until_complete(new_Nmap.controller())
+
+        new_Nmap.loop.run_until_complete(new_Nmap.controller())
         t2 = time.perf_counter()
 
         print("Calculating results..")
@@ -139,4 +141,4 @@ if __name__ == '__main__':
         time.sleep(1)
         os.system("stty sane")
     except Exception as e:
-        print("Error! in display_results: " + str(e))
+        print("Error! in main(): " + str(e))
