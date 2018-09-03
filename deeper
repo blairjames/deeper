@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import os
 import sys
+import time
 
 
 class Deeper:
@@ -30,8 +31,10 @@ class Deeper:
         try:
             os.system("reset")
             args = argparse.ArgumentParser()
-            args.add_argument("nmap_command", help="nmap command with no ports specified. "
-                                                   "\"Must be enclosed in quotes\"", type=str)
+            args.add_argument("nmap_command", help="nmap command with no ports specified."
+                                                   "\"Must be enclosed in quotes.\""
+                                                   " [Example: deeper \"nmap -T2 -Pn -sS -v 127.0.0.1\" 1-1024]",
+                                                   type=str)
             args.add_argument("port_range", help="port range eg. \"80-443\"", type=str)
             parsed = args.parse_args()
             if not "-" in parsed.port_range:
@@ -65,14 +68,14 @@ class Deeper:
     async def controller(self):
         try:
             ports = await self.get_ports()
-            [await self.command_runner(p) for p in ports]
+            tasks = [self.loop.createtask(self.command_runner(p)) for p in ports]
+            return tasks
         except Exception as e:
             print("Error! in controller: " + str(e))
 
 
     def display_results(self):
         try:
-            import time
             t1 = time.perf_counter()
             with open(self.logfile, "r") as file:
                 logs = file.readlines()
@@ -118,23 +121,22 @@ def check_python_version():
 
 if __name__ == '__main__':
     try:
-        import time
         check_python_version()
         t1 = time.perf_counter()
         new_Nmap = Deeper()
         new_Nmap.clear_files()
-        print("\nWARNING! This program intentionally utalises maximum system resources for performance.\n"
-              "Your system may become unresponsive.")
+        print("\nWARNING! This program intentionally utalises system resources for performance.\n"
+              "Your system may become temporarily unresponsive.\nProcessing..")
         loopy = asyncio.get_event_loop()
+        tasks = new_Nmap.controller()
         loopy.run_until_complete(new_Nmap.loop.create_task(new_Nmap.controller()))
         t2 = time.perf_counter()
-        print("\nTotal Execution Time: " + str(round(t2-t1, 4)) + "sec\n")
+
         print("Calculating results..")
         time.sleep(1)
         new_Nmap.display_results()
+        print("\nTotal Execution Time: " + str(round(t2 - t1, 4)) + "sec\n")
         time.sleep(1)
         os.system("stty sane")
-
     except Exception as e:
         print("Error! in display_results: " + str(e))
-
