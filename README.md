@@ -1,6 +1,8 @@
 # Deeper
 Multi-Proccesing wrapper for NMAP
+
 Maps all 65535 ports on a host in ~20 minutes.
+
 Simplifies Enumeration, or allows user to input their own nmap commands.
 
 usage: deeper [-h] [--nmap_command NMAP_COMMAND] [--udp] [--tcp]
