@@ -16,7 +16,6 @@ optional arguments:
   -h, --help            show this help message and exit
   
   --nmap_command NMAP_COMMAND, -n NMAP_COMMAND
-  
                         nmap command with no ports specified."Must be enclosed in quotes." 
                         [Example: deeper "nmap -T2 -Pn -sS -v 127.0.0.1" 1-1024]
                         
