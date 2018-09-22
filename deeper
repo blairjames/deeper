@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 
 import argparse
-import concurrent.futures
 import os
 import sys
 import time
 import subprocess
+import random
+from concurrent import futures
 
 
 class Deeper:
 
     def __init__(self):
         try:
-            self.procs: int = 0
-            self.command, self.port_range = self.get_args()
-            self.min, self.max = self.port_range.split("-")
+            self.top_udp = False
+            self.top_tcp = False
+            self.port_range = False
+            self.command = ""
+            self.host = ""
+            self.scan_type = ""
+            self.min = ""
+            self.max = ""
             self.logfile = os.getcwd() + "/deeper.log"
         except Exception as e:
             print("Error! in __init__: " + str(e))
@@ -24,84 +30,147 @@ class Deeper:
         try:
             with open(self.logfile, "w") as file:
                 file.write("")
+            os.system("reset")
         except Exception as e:
             print("Error! in clear_files: " + str(e))
 
 
     def get_args(self) -> argparse:
         try:
-            os.system("reset")
             args = argparse.ArgumentParser()
-            args.add_argument("nmap_command", help="nmap command with no ports specified."
-                                                   "\"Must be enclosed in quotes.\""
-                                                   " [Example: deeper \"nmap -T2 -Pn -sS -v 127.0.0.1\" 1-1024]",
-                                                   type=str)
-            args.add_argument("port_range", help="port range eg. \"80-443\"", type=str)
+            args.add_argument("host", help="Target of scan.", type=str)
+            args.add_argument("--nmap_command", "-n", help="nmap command with no ports specified."
+                              "\"Must be enclosed in quotes.\" [Example: deeper "
+                              "\"nmap -T2 -Pn -sS -v 127.0.0.1\" 1-1024]", type=str)
+            args.add_argument("--udp", "-u", help="scan top 1000 UDP ports", action='store_true')
+            args.add_argument("--tcp", "-t", help="scan top 1000 TCP ports", action='store_true')
+            args.add_argument("--port_range", "-p", help="port range eg. \"80-443\"", type=str)
             parsed = args.parse_args()
-            if not "-" in parsed.port_range:
-                print("\nPlease specify a range of ports. \"1-1024\"")
+
+            if not parsed.tcp and not parsed.port_range and not parsed.udp:
+                print("Please select a port option.")
                 exit(1)
-            if len(parsed.nmap_command) < 79 and len(parsed.port_range) < 12:
-                return parsed.nmap_command, parsed.port_range
+
+            spit = False
+            if parsed.tcp and parsed.udp:
+                spit = True
+            if parsed.tcp and parsed.port_range:
+                spit = True
+            if parsed.udp and parsed.port_range:
+                spit = True
+            if parsed.tcp and parsed.port_range and parsed.udp:
+                spit = True
+            if spit:
+                print("Only one port option can be used at any one time.\nPlease select TCP, UDP or define a range.")
+                exit(1)
+
+            self.host = parsed.host
+
+            if parsed.port_range:
+                if not "-" in parsed.port_range or len(parsed.port_range) > 12:
+                    print("\nPlease specify a range of ports. \"1-1024\"")
+                    exit(1)
+                else:
+                    min, max = parsed.port_range.split("-")
+                    self.min = min
+                    self.max = max
+                    self.port_range = True
+
+            if parsed.nmap_command:
+                if len(parsed.nmap_command) < 79:
+                    self.command = parsed.nmap_command
+                else:
+                    print("\nTry Harder..\n")
+                    exit(1)
             else:
-                print("\nTry Harder..\n")
-                exit(1)
+                self.command = "nmap -T2 -Pn -v "
+
+            if parsed.tcp:
+                self.top_tcp = parsed.tcp
+                self.scan_type = "-sT"
+
+            elif parsed.udp:
+                self.top_udp = parsed.udp
+                self.scan_type = "-sU"
+
+            elif parsed.port_range:
+                self.scan_type = "-sS"
+
         except Exception as e:
             print("Error! in get_args: " + str(e))
 
 
+    def get_top_ports_list(self, protocol):
+        try:
+            if "tcp" in protocol:
+                path = os.getcwd() + "/tcp_ports_1000.txt"
+            elif "udp" in protocol:
+                path = os.getcwd() + "/udp_ports_1000.txt"
+            else:
+                raise Exception
+            with open(path, "r") as file:
+                ports = file.readlines()
+                ports = [b for b in str(ports).split(",")]
+            return ports
+        except Exception as e:
+            print("Error in get_top_ports_list: " + str(e))
+
     def get_ports(self):
         try:
-            ports = [str(i) for i in range(int(self.min), int(self.max)+1)]
+            ports = (str(i) for i in range(int(self.min), int(self.max)+1))
             return ports
         except Exception as e:
             print("Error! in get_ports: " + str(e))
 
-
     def command_runner(self, port):
         try:
-            cmd = (self.command + " -p " + port + " >> " + self.logfile)
-            subprocess.run(cmd, stdout=subprocess.PIPE, shell=True)
+            rand = random.randint(0, 4)
+            time.sleep(rand)
+            cmd = (self.command + self.host + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
+            subprocess.run(cmd, shell=True)
         except Exception as e:
             print("Error in command_runner: " + str(e))
 
-
     def controller(self):
         try:
-            ports = self.get_ports()
-            with concurrent.futures.ProcessPoolExecutor(128) as pool:
+            if self.top_tcp:
+                ports = self.get_top_ports_list("tcp")
+            elif self.top_udp:
+                ports = self.get_top_ports_list("udp")
+            elif self.port_range:
+                ports = self.get_ports()
+            else:
+                raise Exception
+            with futures.ProcessPoolExecutor(500) as pool:
                 pool.map(self.command_runner, ports)
-
         except Exception as e:
             print("Error! in controller: " + str(e))
-
 
     def display_results(self):
         try:
             t1 = time.perf_counter()
             with open(self.logfile, "r") as file:
                 logs = file.readlines()
-                ports = [l for l in logs if "tcp" in l or "udp" in l
-                         or "closed" in l or "filtered" in l or "open" in l]
-                [print(p.rstrip("\n")) for p in sorted(ports)]
+                ports = [l for l in logs if "tcp" in l or "udp" in l]
+                [print(p.rstrip("\n")) for p in ports]
                 closed = [p for p in ports if "closed" in p]
                 filter = [p for p in ports if "filter" in p]
-                open_ports = [p for p in ports if "open" in p and not "closed" in p and not "filter" in p]
+                open_ports = [p for p in ports if "Discovered open" in p
+                              and not "closed" in p and not "filter" in p]
                 total = len(ports)
                 num_cl = len(closed)
                 num_fl = len(filter)
                 num_op = len(open_ports)
-                print("\n******************************************************")
-                print("Command: \"" + self.command + " -p " + str(self.port_range) + "\"")
-                print("******************************************************\n"
+                total = total - num_op
+                print("\n******************************************************\n"
                       "Total Ports Scanned: " + str(total))
                 print("Closed: " + str(num_cl))
                 print("Filtered: " + str(num_fl))
                 print("Open: " + str(num_op))
                 if num_op > 0:
-                    print("\n********* Open Ports from *********")
+                    print("\n********* Open Ports *********")
                     [print(o.rstrip()) for o in open_ports]
-                    print("***********************************")
+                    print("*********************************")
                 else:
                     print("\nNo ports discovered open. :(")
             t2 = time.perf_counter()
@@ -127,15 +196,14 @@ if __name__ == '__main__':
         t1 = time.perf_counter()
         new_Nmap = Deeper()
         new_Nmap.clear_files()
+        new_Nmap.get_args()
         print("\nWARNING! This program intentionally utalises system resources for performance.\n"
               "Your system may become temporarily unresponsive.\nProcessing..")
-
         new_Nmap.controller()
-        t2 = time.perf_counter()
-
         print("Calculating results..")
         time.sleep(1)
         new_Nmap.display_results()
+        t2 = time.perf_counter()
         print("\nTotal Execution Time: " + str(round(t2 - t1, 4)) + "sec\n")
         time.sleep(1)
         os.system("stty sane")
