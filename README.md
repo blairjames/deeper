@@ -1,2 +1,2 @@
 # Deeper
-Asynchronous nmap wrapper
+Multi-Proccesing wrapper for NMAP
