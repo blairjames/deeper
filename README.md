@@ -17,11 +17,8 @@ optional arguments:
   
   --nmap_command NMAP_COMMAND, -n NMAP_COMMAND
   
-                        nmap command with no ports specified."Must be enclosed
-                        in quotes." 
-                        
-                        [Example: deeper "nmap -T2 -Pn -sS -v
-                        127.0.0.1" 1-1024]
+                        nmap command with no ports specified."Must be enclosed in quotes." 
+                        [Example: deeper "nmap -T2 -Pn -sS -v 127.0.0.1" 1-1024]
                         
   --udp, -u             scan top 1000 UDP ports
   
