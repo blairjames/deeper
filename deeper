@@ -21,6 +21,8 @@ class Deeper:
             self.scan_type = ""
             self.min = ""
             self.max = ""
+            self.num_ports: int = 0
+            self.procs: int = 0
             self.logfile = os.getcwd() + "/deeper.log"
         except Exception as e:
             print("Error! in __init__: " + str(e))
@@ -45,6 +47,7 @@ class Deeper:
             args.add_argument("--udp", "-u", help="scan top 1000 UDP ports", action='store_true')
             args.add_argument("--tcp", "-t", help="scan top 1000 TCP ports", action='store_true')
             args.add_argument("--port_range", "-p", help="port range eg. \"80-443\"", type=str)
+            args.add_argument("--procs", "-z", help="Number of processes to spawn", type=int)
             parsed = args.parse_args()
 
             if not parsed.tcp and not parsed.port_range and not parsed.udp:
@@ -61,11 +64,19 @@ class Deeper:
             if parsed.tcp and parsed.port_range and parsed.udp:
                 spit = True
             if spit:
-                print("Only one port option can be used at any one time.\nPlease select TCP, UDP or define a range.")
+                print("Only one port option can be used at any one time.\n"
+                      "Please select TCP, UDP or define a range.")
                 exit(1)
 
             self.host = parsed.host
-
+            if parsed.procs:
+                if parsed.procs > 0 and parsed.procs < 1000:
+                    self.procs = parsed.procs
+                else:
+                    print("Processes must be less than 1000 due to OS limitations.")
+                    exit(1)
+            else:
+                self.procs = 500
             if parsed.port_range:
                 if not "-" in parsed.port_range or len(parsed.port_range) > 12:
                     print("\nPlease specify a range of ports. \"1-1024\"")
@@ -78,7 +89,7 @@ class Deeper:
 
             if parsed.nmap_command:
                 if len(parsed.nmap_command) < 79:
-                    self.command = parsed.nmap_command
+                    self.command = parsed.nmap_command + " "
                 else:
                     print("\nTry Harder..\n")
                     exit(1)
@@ -117,14 +128,14 @@ class Deeper:
 
     def get_ports(self):
         try:
-            ports = (str(i) for i in range(int(self.min), int(self.max)+1))
+            ports = [str(i) for i in range(int(self.min), int(self.max)+1)]
             return ports
         except Exception as e:
             print("Error! in get_ports: " + str(e))
 
     def command_runner(self, port):
         try:
-            rand = random.randint(0, 4)
+            rand = random.randint(0, (round(self.num_ports/100)))
             time.sleep(rand)
             cmd = (self.command + self.host + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
             subprocess.run(cmd, shell=True)
@@ -135,13 +146,16 @@ class Deeper:
         try:
             if self.top_tcp:
                 ports = self.get_top_ports_list("tcp")
+                self.num_ports = len(ports)
             elif self.top_udp:
                 ports = self.get_top_ports_list("udp")
+                self.num_ports = len(ports)
             elif self.port_range:
                 ports = self.get_ports()
+                self.num_ports = len(ports)
             else:
                 raise Exception
-            with futures.ProcessPoolExecutor(500) as pool:
+            with futures.ProcessPoolExecutor(self.procs) as pool:
                 pool.map(self.command_runner, ports)
         except Exception as e:
             print("Error! in controller: " + str(e))
@@ -155,7 +169,7 @@ class Deeper:
                 [print(p.rstrip("\n")) for p in ports]
                 closed = [p for p in ports if "closed" in p]
                 filter = [p for p in ports if "filter" in p]
-                open_ports = [p for p in ports if "Discovered open" in p
+                open_ports = [p for p in ports if "open" in p
                               and not "closed" in p and not "filter" in p]
                 total = len(ports)
                 num_cl = len(closed)
