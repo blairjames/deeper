@@ -9,18 +9,22 @@ import datetime
 from concurrent import futures
 
 
-class Doppler:
+class Deeper:
 
     def __init__(self):
         try:
-            self.port = ""
-            self.command = ""
+            self.top_udp = False
+            self.top_tcp = True
+            self.port_range = False
+            self.command = "nmap -T2 -Pn -v "
             self.network = ""
             self.scan_type = "-sS"
+            self.min = ""
+            self.max = ""
             self.num_ports: int = 0
             self.procs: int = 0
             self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-            self.logfile = os.getcwd() + "/doppler_" + self.timestamp + ".log"
+            self.logfile = os.getcwd() + "/deeper_" + self.timestamp + ".log"
         except Exception as e:
             print("Error! in __init__: " + str(e))
 
@@ -35,11 +39,11 @@ class Doppler:
     def get_args(self) -> argparse:
         try:
             args = argparse.ArgumentParser()
-            args.add_argument("network", help="/24 Network Target of scan.", type=str)
+            args.add_argument("network", help="/24 Network to scan")
             args.add_argument("--procs", "-z", help="Number of processes to spawn", type=int)
             parsed = args.parse_args()
             self.network = parsed.network
-            self.command = "nmap -T2 -Pn -v "
+
             if parsed.procs:
                 if parsed.procs > 0 and parsed.procs < 1000:
                     self.procs = parsed.procs
@@ -51,22 +55,32 @@ class Doppler:
         except Exception as e:
             print("Error! in get_args: " + str(e))
 
-    def get_ip_list(self):
+    def get_top_ports_list(self, protocol):
         try:
-            net = self.network
-            a,b,c,d = net.split(".")
-            seq = [i for i in range(1, 255)]
-            first = a + "." + b + "." + c + "."
-            ip_list = [first+str(s) for s in seq]
-            return ip_list
+            if "tcp" in protocol:
+                path = os.getcwd() + "/tcp_ports_1000.txt"
+            elif "udp" in protocol:
+                path = os.getcwd() + "/udp_ports_1000.txt"
+            else:
+                raise Exception
+            with open(path, "r") as file:
+                ports = file.readlines()
+                ports = [b.rstrip() for b in str(ports).split(",")]
+            return ports
         except Exception as e:
-            print("Error in get_ip_list: " + str(e) +
-            "\nPlease Enter IP address of network in the format 10.10.10.0\n")
+            print("Error in get_top_ports_list: " + str(e))
 
-    def command_runner(self, host):
+    def get_ports(self):
         try:
-            cmd = (self.command + host + " " + self.scan_type + " -p " + self.port + " >> " + self.logfile)
-            print(str(cmd))
+            ports = self.get_top_ports_list("tcp")
+            return ports
+        except Exception as e:
+            print("Error! in get_ports: " + str(e))
+
+    def command_runner(self, port):
+        try:
+            cmd = (self.command + self.network + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
+            print(cmd)
             subprocess.run(cmd, shell=True)
         except Exception as e:
             print("Error in command_runner: " + str(e))
@@ -82,12 +96,6 @@ class Doppler:
         with open(self.logfile, "a") as file:
             file.write("\n*************************************************\n")
             file.writelines(results)
-
-    def get_ports(self):
-        with open(os.getcwd() + "/top_ten_tcp.txt", "r") as file:
-            ports = file.readlines()
-            ports = [p.rstrip("\n") for p in ports]
-            return ports
 
     def display_results(self):
         try:
@@ -114,13 +122,13 @@ class Doppler:
                     print("\n********* Open Ports *********")
                     [print(o.rstrip()) for o in open_ports]
                     print("*********************************")
-                    new_Nmap.write_results(open_ports)
                 else:
                     print("\nNo ports discovered open. :(")
             t2 = time.perf_counter()
             print("\nTime to calculate and display results: " + str(round(t2-t1, 4)) + "sec\n")
         except Exception as e:
             print("Error! in display_results: " + str(e))
+
 
 def check_python_version():
     try:
@@ -132,21 +140,19 @@ def check_python_version():
     except Exception as e:
         print("Error! in check_python_version: " + str(e))
 
+
 if __name__ == '__main__':
     try:
         check_python_version()
         t1 = time.perf_counter()
-        new_Nmap = Doppler()
+        new_Nmap = Deeper()
         new_Nmap.clear_files()
         new_Nmap.get_args()
         print("\nWARNING! This program intentionally utalises system resources for performance.\n"
               "Your system may become temporarily unresponsive.\nProcessing..")
 
-
-
-
-
-        print("Calculating results..")
+        ports = new_Nmap.get_ports()
+        new_Nmap.controller(ports)
         new_Nmap.display_results()
 
         t2 = time.perf_counter()

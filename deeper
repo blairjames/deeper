@@ -5,7 +5,7 @@ import os
 import sys
 import time
 import subprocess
-import random
+import datetime
 from concurrent import futures
 
 
@@ -23,7 +23,8 @@ class Deeper:
             self.max = ""
             self.num_ports: int = 0
             self.procs: int = 0
-            self.logfile = os.getcwd() + "/deeper.log"
+            self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            self.logfile = os.getcwd() + "/deeper_" + self.timestamp + ".log"
         except Exception as e:
             print("Error! in __init__: " + str(e))
 
@@ -40,10 +41,7 @@ class Deeper:
     def get_args(self) -> argparse:
         try:
             args = argparse.ArgumentParser()
-            args.add_argument("host", help="Target of scan.", type=str)
-            args.add_argument("--nmap_command", "-n", help="nmap command with no ports specified."
-                              "\"Must be enclosed in quotes.\" [Example: deeper "
-                              "\"nmap -T2 -Pn -sS -v 127.0.0.1\" 1-1024]", type=str)
+            args.add_argument("network", help="/24 Network to scan")
             args.add_argument("--udp", "-u", help="scan top 1000 UDP ports", action='store_true')
             args.add_argument("--tcp", "-t", help="scan top 1000 TCP ports", action='store_true')
             args.add_argument("--port_range", "-p", help="port range eg. \"80-443\"", type=str)
@@ -135,9 +133,8 @@ class Deeper:
 
     def command_runner(self, port):
         try:
-            rand = random.randint(0, (round(self.num_ports/100)))
-            time.sleep(rand)
             cmd = (self.command + self.host + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
+            print(cmd)
             subprocess.run(cmd, shell=True)
         except Exception as e:
             print("Error in command_runner: " + str(e))
