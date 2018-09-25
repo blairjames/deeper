@@ -20,7 +20,7 @@ class Doppler:
             self.num_ports: int = 0
             self.procs: int = 0
             self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-            self.logfile = os.getcwd() + "/doppler_" + self.timestamp + ".log"
+            self.logfile = os.getcwd() + "/deeper_network_top_ten_" + self.timestamp + ".log"
         except Exception as e:
             print("Error! in __init__: " + str(e))
 
@@ -144,6 +144,7 @@ if __name__ == '__main__':
         ports = new_Nmap.get_ports()
         ips = new_Nmap.get_ip_list()
         for p in ports:
+            new_Nmap.port = str(p)
             new_Nmap.controller(ips)
         new_Nmap.display_results()
         t2 = time.perf_counter()
