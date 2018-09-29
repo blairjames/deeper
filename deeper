@@ -6,6 +6,8 @@ import sys
 import time
 import subprocess
 import datetime
+import random
+import termcolor
 from concurrent import futures
 
 
@@ -17,41 +19,33 @@ class Deeper:
             self.top_tcp = False
             self.port_range = False
             self.command = ""
-            self.host = ""
+            self.target = ""
             self.scan_type = ""
             self.min = ""
             self.max = ""
-            self.num_ports: int = 0
+            self.masscan = False
             self.procs: int = 0
             self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-            self.logfile = os.getcwd() + "/deeper_" + self.timestamp + ".log"
+            self.logfile = ""
         except Exception as e:
             print("Error! in __init__: " + str(e))
-
-
-    def clear_files(self):
-        try:
-            with open(self.logfile, "w") as file:
-                file.write("")
-            os.system("reset")
-        except Exception as e:
-            print("Error! in clear_files: " + str(e))
 
 
     def get_args(self) -> argparse:
         try:
             args = argparse.ArgumentParser()
-            args.add_argument("network", help="/24 Network to scan")
+            args.add_argument("target", help="Network or host to scan")
             args.add_argument("--udp", "-u", help="scan top 1000 UDP ports", action='store_true')
             args.add_argument("--tcp", "-t", help="scan top 1000 TCP ports", action='store_true')
-            args.add_argument("--port_range", "-p", help="port range eg. \"80-443\"", type=str)
+            args.add_argument("--time", "-T", help="nmap time profile T1-5")
+            args.add_argument("--port_range", "-p", help="port range eg. \"80-443\", TCP SYN Scan", type=str)
             args.add_argument("--procs", "-z", help="Number of processes to spawn", type=int)
+            args.add_argument("--fast", "-f", help="Use Masscan for performance, requires port range", action='store_true')
             parsed = args.parse_args()
 
             if not parsed.tcp and not parsed.port_range and not parsed.udp:
                 print("Please select a port option.")
                 exit(1)
-
             spit = False
             if parsed.tcp and parsed.udp:
                 spit = True
@@ -66,7 +60,11 @@ class Deeper:
                       "Please select TCP, UDP or define a range.")
                 exit(1)
 
-            self.host = parsed.host
+
+            self.target = parsed.target
+            self.logfile = os.getcwd() + "/deeper_" + self.target + "_" + self.timestamp + ".log"
+            self.masscan = parsed.fast
+
             if parsed.procs:
                 if parsed.procs > 0 and parsed.procs < 1000:
                     self.procs = parsed.procs
@@ -75,7 +73,39 @@ class Deeper:
                     exit(1)
             else:
                 self.procs = 500
+
+            print("tops")
+            if not parsed.fast:
+                print("in if not fast")
+                if parsed.time:
+                    self.command = "nmap -Pn -v -T" + str(parsed.time) + " "
+                else:
+                    self.command = "nmap -T2 -Pn -v "
+                if parsed.tcp:
+                    self.top_tcp = parsed.tcp
+                    self.scan_type = "-sT"
+                if parsed.udp:
+                    self.top_udp = parsed.udp
+                    self.scan_type = "-sU"
+                if parsed.port_range:
+                    self.scan_type = "-sS"
+
+            if parsed.fast:
+                if not self.port_range:
+                    print("\nFast mode requires a port range to be specified.\n")
+                    exit(1)
+                if not "-" in parsed.port_range or len(parsed.port_range) > 12:
+                    print("\nPlease specify a range of ports. \"1-1024\"")
+                    exit(1)
+                else:
+                    print("in teh arge")
+                    min, max = parsed.port_range.split("-")
+                    self.min = min
+                    self.max = max
+                    self.port_range = True
+
             if parsed.port_range:
+                print(parsed.port_range)
                 if not "-" in parsed.port_range or len(parsed.port_range) > 12:
                     print("\nPlease specify a range of ports. \"1-1024\"")
                     exit(1)
@@ -85,29 +115,11 @@ class Deeper:
                     self.max = max
                     self.port_range = True
 
-            if parsed.nmap_command:
-                if len(parsed.nmap_command) < 79:
-                    self.command = parsed.nmap_command + " "
-                else:
-                    print("\nTry Harder..\n")
-                    exit(1)
-            else:
-                self.command = "nmap -T2 -Pn -v "
-
-            if parsed.tcp:
-                self.top_tcp = parsed.tcp
-                self.scan_type = "-sT"
-
-            elif parsed.udp:
-                self.top_udp = parsed.udp
-                self.scan_type = "-sU"
-
-            elif parsed.port_range:
-                self.scan_type = "-sS"
+            self.masscan = True
+            self.command = "masscan " + self.target + " "
 
         except Exception as e:
             print("Error! in get_args: " + str(e))
-
 
     def get_top_ports_list(self, protocol):
         try:
@@ -127,15 +139,23 @@ class Deeper:
     def get_ports(self):
         try:
             ports = [str(i) for i in range(int(self.min), int(self.max)+1)]
+            random.shuffle(ports)
+            print(ports)
+
             return ports
         except Exception as e:
             print("Error! in get_ports: " + str(e))
 
     def command_runner(self, port):
         try:
-            cmd = (self.command + self.host + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
-            print(cmd)
-            subprocess.run(cmd, shell=True)
+            if not self.masscan:
+                cmd = (self.command + self.target + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
+                print(cmd)
+                subprocess.run(cmd, shell=True)
+            else:
+                cmd = (self.command + " -p " + port + " >> " + self.logfile)
+                print(cmd)
+                subprocess.run(cmd, shell=True)
         except Exception as e:
             print("Error in command_runner: " + str(e))
 
@@ -143,19 +163,28 @@ class Deeper:
         try:
             if self.top_tcp:
                 ports = self.get_top_ports_list("tcp")
-                self.num_ports = len(ports)
             elif self.top_udp:
                 ports = self.get_top_ports_list("udp")
-                self.num_ports = len(ports)
             elif self.port_range:
                 ports = self.get_ports()
-                self.num_ports = len(ports)
-            else:
-                raise Exception
             with futures.ProcessPoolExecutor(self.procs) as pool:
                 pool.map(self.command_runner, ports)
         except Exception as e:
             print("Error! in controller: " + str(e))
+
+    def banner(self):
+        os.system("clear")
+        color = "blue"
+        print(termcolor.colored("***************************************************************************", color))
+        print(termcolor.colored("*  ________ ", color))
+        print(termcolor.colored("*  ___  __ \_____ _____ ________ _____ ________", color))
+        print(termcolor.colored("*  __  / / /_  _ \_  _ \___  __ \_  _ \__  ___/", color))
+        print(termcolor.colored("*  _  /_/ / /  __//  __/__  /_/ //  __/_  /    ", color))
+        print(termcolor.colored("*  /_____/  \___/ \___/ _  .___/ \___/ /_/", color))
+        print(termcolor.colored("*                       /_/     ", color))
+        print(termcolor.colored("*\n* Know thy self, know thy enemy. A thousand battles, a thousand victories.", color))
+        print(termcolor.colored("***************************************************************************", color))
+
 
     def display_results(self):
         try:
@@ -166,7 +195,7 @@ class Deeper:
                 [print(p.rstrip("\n")) for p in ports]
                 closed = [p for p in ports if "closed" in p]
                 filter = [p for p in ports if "filter" in p]
-                open_ports = [p for p in ports if "open" in p
+                open_ports = [p for p in ports if "Discovered open" in p
                               and not "closed" in p and not "filter" in p]
                 total = len(ports)
                 num_cl = len(closed)
@@ -179,7 +208,7 @@ class Deeper:
                 print("Filtered: " + str(num_fl))
                 print("Open: " + str(num_op))
                 if num_op > 0:
-                    print("\n********* Open Ports *********")
+                    print("\n********** Open Ports **********")
                     [print(o.rstrip()) for o in open_ports]
                     print("*********************************")
                 else:
@@ -196,7 +225,7 @@ def check_python_version():
         ver = str(x) + str(y)
         if int(ver) < 36:
             print("\nThis application requires Python 3.6 or greater.\nhttps://www.python.org/downloads/\n")
-            exit(0)
+            exit(1)
     except Exception as e:
         print("Error! in check_python_version: " + str(e))
 
@@ -206,17 +235,15 @@ if __name__ == '__main__':
         check_python_version()
         t1 = time.perf_counter()
         new_Nmap = Deeper()
-        new_Nmap.clear_files()
         new_Nmap.get_args()
+        new_Nmap.banner()
         print("\nWARNING! This program intentionally utalises system resources for performance.\n"
-              "Your system may become temporarily unresponsive.\nProcessing..")
+              "Your system may become temporarily unresponsive.\n\nProcessing..")
         new_Nmap.controller()
         print("Calculating results..")
-        time.sleep(1)
         new_Nmap.display_results()
         t2 = time.perf_counter()
         print("\nTotal Execution Time: " + str(round(t2 - t1, 4)) + "sec\n")
-        time.sleep(1)
         os.system("stty sane")
     except Exception as e:
         print("Error! in main(): " + str(e))
