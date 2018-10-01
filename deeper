@@ -17,16 +17,16 @@ class Deeper:
         try:
             self.top_udp = False
             self.top_tcp = False
-            self.port_range = False
+            self.ports = False
+            self.no_random = False
             self.command = ""
             self.target = ""
             self.scan_type = ""
             self.min = ""
             self.max = ""
-            self.masscan = False
-            self.procs: int = 0
             self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
             self.logfile = ""
+            self.procs: int = 0
         except Exception as e:
             print("Error! in __init__: " + str(e))
 
@@ -35,35 +35,17 @@ class Deeper:
         try:
             args = argparse.ArgumentParser()
             args.add_argument("target", help="Network or host to scan")
-            args.add_argument("--udp", "-u", help="scan top 1000 UDP ports", action='store_true')
-            args.add_argument("--tcp", "-t", help="scan top 1000 TCP ports", action='store_true')
+            args.add_argument("--udp", "-sU", help="scan UDP ports", action='store_true')
+            args.add_argument("--tcp", "-sT", help="scan TCP ports", action='store_true')
             args.add_argument("--time", "-T", help="nmap time profile T1-5")
-            args.add_argument("--port_range", "-p", help="port range eg. \"80-443\", TCP SYN Scan", type=str)
-            args.add_argument("--procs", "-z", help="Number of processes to spawn", type=int)
-            args.add_argument("--fast", "-f", help="Use Masscan for performance, requires port range", action='store_true')
+            args.add_argument("--ports", "-p", help="port range eg. \"80-443\"", type=str)
+            args.add_argument("--no_random", "-r", help="port range will not be randomised", action='store_true')
+            args.add_argument("--procs", "-z", help="Number of processes to spawn, 1-999", type=int)
             parsed = args.parse_args()
-
-            if not parsed.tcp and not parsed.port_range and not parsed.udp:
-                print("Please select a port option.")
-                exit(1)
-            spit = False
-            if parsed.tcp and parsed.udp:
-                spit = True
-            if parsed.tcp and parsed.port_range:
-                spit = True
-            if parsed.udp and parsed.port_range:
-                spit = True
-            if parsed.tcp and parsed.port_range and parsed.udp:
-                spit = True
-            if spit:
-                print("Only one port option can be used at any one time.\n"
-                      "Please select TCP, UDP or define a range.")
-                exit(1)
-
 
             self.target = parsed.target
             self.logfile = os.getcwd() + "/deeper_" + self.target + "_" + self.timestamp + ".log"
-            self.masscan = parsed.fast
+            self.no_random = parsed.no_random
 
             if parsed.procs:
                 if parsed.procs > 0 and parsed.procs < 1000:
@@ -72,52 +54,45 @@ class Deeper:
                     print("Processes must be less than 1000 due to OS limitations.")
                     exit(1)
             else:
-                self.procs = 500
+                self.procs = 256
 
-            print("tops")
-            if not parsed.fast:
-                print("in if not fast")
-                if parsed.time:
-                    self.command = "nmap -Pn -v -T" + str(parsed.time) + " "
-                else:
-                    self.command = "nmap -T2 -Pn -v "
-                if parsed.tcp:
-                    self.top_tcp = parsed.tcp
+            if parsed.time:
+                self.command = "nmap -Pn -v -T" + str(parsed.time) + " "
+            else:
+                self.command = "nmap -T2 -Pn -v "
+
+            if not parsed.udp and not parsed.tcp:
+                self.scan_type = "-sS"
+
+            if parsed.tcp:
+                if not parsed.udp:
                     self.scan_type = "-sT"
-                if parsed.udp:
-                    self.top_udp = parsed.udp
+                else:
+                    print("TCP and UDP scans are mutually exclusive. Please select only one.")
+                    exit(1)
+
+            if parsed.udp:
+                if not parsed.tcp:
                     self.scan_type = "-sU"
-                if parsed.port_range:
-                    self.scan_type = "-sS"
-
-            if parsed.fast:
-                if not self.port_range:
-                    print("\nFast mode requires a port range to be specified.\n")
+                else:
+                    print("TCP and UDP scans are mutually exclusive. Please select only one.")
                     exit(1)
-                if not "-" in parsed.port_range or len(parsed.port_range) > 12:
+
+            if parsed.ports:
+                if not "-" in parsed.ports or len(parsed.ports) > 12:
                     print("\nPlease specify a range of ports. \"1-1024\"")
                     exit(1)
                 else:
-                    print("in teh arge")
-                    min, max = parsed.port_range.split("-")
-                    self.min = min
-                    self.max = max
-                    self.port_range = True
+                    pmin, pmax = parsed.ports.split("-")
+                    self.min = pmin
+                    self.max = pmax
+                    self.ports = True
 
-            if parsed.port_range:
-                print(parsed.port_range)
-                if not "-" in parsed.port_range or len(parsed.port_range) > 12:
-                    print("\nPlease specify a range of ports. \"1-1024\"")
-                    exit(1)
+            elif not parsed.ports:
+                if parsed.udp:
+                    self.top_udp = True
                 else:
-                    min, max = parsed.port_range.split("-")
-                    self.min = min
-                    self.max = max
-                    self.port_range = True
-
-            self.masscan = True
-            self.command = "masscan " + self.target + " "
-
+                    self.top_tcp = True
         except Exception as e:
             print("Error! in get_args: " + str(e))
 
@@ -131,7 +106,9 @@ class Deeper:
                 raise Exception
             with open(path, "r") as file:
                 ports = file.readlines()
-                ports = [b for b in str(ports).split(",")]
+                ports = [str(b) for b in str(ports).split(",")]
+            if not self.no_random:
+                random.shuffle(ports)
             return ports
         except Exception as e:
             print("Error in get_top_ports_list: " + str(e))
@@ -139,23 +116,17 @@ class Deeper:
     def get_ports(self):
         try:
             ports = [str(i) for i in range(int(self.min), int(self.max)+1)]
-            random.shuffle(ports)
-            print(ports)
-
+            if not self.no_random:
+                random.shuffle(ports)
             return ports
         except Exception as e:
             print("Error! in get_ports: " + str(e))
 
     def command_runner(self, port):
         try:
-            if not self.masscan:
-                cmd = (self.command + self.target + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
-                print(cmd)
-                subprocess.run(cmd, shell=True)
-            else:
-                cmd = (self.command + " -p " + port + " >> " + self.logfile)
-                print(cmd)
-                subprocess.run(cmd, shell=True)
+            cmd = (self.command + self.target + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
+            print(cmd)
+            subprocess.run([cmd],stdout=subprocess.PIPE, shell=True)
         except Exception as e:
             print("Error in command_runner: " + str(e))
 
@@ -165,7 +136,7 @@ class Deeper:
                 ports = self.get_top_ports_list("tcp")
             elif self.top_udp:
                 ports = self.get_top_ports_list("udp")
-            elif self.port_range:
+            else:
                 ports = self.get_ports()
             with futures.ProcessPoolExecutor(self.procs) as pool:
                 pool.map(self.command_runner, ports)
