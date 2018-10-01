@@ -35,18 +35,17 @@ class Deeper:
         try:
             args = argparse.ArgumentParser()
             args.add_argument("target", help="Network or host to scan")
-            args.add_argument("--udp", "-sU", help="scan UDP ports", action='store_true')
-            args.add_argument("--tcp", "-sT", help="scan TCP ports", action='store_true')
-            args.add_argument("--time", "-T", help="nmap time profile T1-5")
-            args.add_argument("--ports", "-p", help="port range eg. \"80-443\"", type=str)
-            args.add_argument("--no_random", "-r", help="port range will not be randomised", action='store_true')
-            args.add_argument("--procs", "-z", help="Number of processes to spawn, 1-999", type=int)
+            args.add_argument("--udp", "-sU", help="UDP Scan, default -sS syn", action='store_true')
+            args.add_argument("--tcp", "-sT", help="TCP Scan, default -sS syn", action='store_true')
+            args.add_argument("--ver", "-sV", help="Determine service/version info", action='store_true')
+            args.add_argument("--time", "-T", help="nmap time profile T1-5, default -T2")
+            args.add_argument("--ports", "-p", help="Port range eg. \"80-443\"", type=str)
+            args.add_argument("--no_random", "-r", help="Port range will not be randomised", action='store_true')
+            args.add_argument("--procs", "-z", help="Number of processes to spawn, 1-999, default 256", type=int)
             parsed = args.parse_args()
-
             self.target = parsed.target
             self.logfile = os.getcwd() + "/deeper_" + self.target + "_" + self.timestamp + ".log"
             self.no_random = parsed.no_random
-
             if parsed.procs:
                 if parsed.procs > 0 and parsed.procs < 1000:
                     self.procs = parsed.procs
@@ -61,23 +60,23 @@ class Deeper:
             else:
                 self.command = "nmap -T2 -Pn -v "
 
+            if parsed.ver:
+                self.command = self.command + "-sCV --version-all "
+
             if not parsed.udp and not parsed.tcp:
                 self.scan_type = "-sS"
-
             if parsed.tcp:
                 if not parsed.udp:
                     self.scan_type = "-sT"
                 else:
                     print("TCP and UDP scans are mutually exclusive. Please select only one.")
                     exit(1)
-
             if parsed.udp:
                 if not parsed.tcp:
                     self.scan_type = "-sU"
                 else:
                     print("TCP and UDP scans are mutually exclusive. Please select only one.")
                     exit(1)
-
             if parsed.ports:
                 if not "-" in parsed.ports or len(parsed.ports) > 12:
                     print("\nPlease specify a range of ports. \"1-1024\"")
@@ -87,7 +86,6 @@ class Deeper:
                     self.min = pmin
                     self.max = pmax
                     self.ports = True
-
             elif not parsed.ports:
                 if parsed.udp:
                     self.top_udp = True
@@ -95,6 +93,7 @@ class Deeper:
                     self.top_tcp = True
         except Exception as e:
             print("Error! in get_args: " + str(e))
+
 
     def get_top_ports_list(self, protocol):
         try:
@@ -113,6 +112,7 @@ class Deeper:
         except Exception as e:
             print("Error in get_top_ports_list: " + str(e))
 
+
     def get_ports(self):
         try:
             ports = [str(i) for i in range(int(self.min), int(self.max)+1)]
@@ -122,6 +122,7 @@ class Deeper:
         except Exception as e:
             print("Error! in get_ports: " + str(e))
 
+
     def command_runner(self, port):
         try:
             cmd = (self.command + self.target + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
@@ -129,6 +130,7 @@ class Deeper:
             subprocess.run([cmd],stdout=subprocess.PIPE, shell=True)
         except Exception as e:
             print("Error in command_runner: " + str(e))
+
 
     def controller(self):
         try:
@@ -142,6 +144,7 @@ class Deeper:
                 pool.map(self.command_runner, ports)
         except Exception as e:
             print("Error! in controller: " + str(e))
+
 
     def banner(self):
         os.system("clear")
