@@ -34,7 +34,7 @@ class Deeper:
     def get_args(self) -> argparse:
         try:
             args = argparse.ArgumentParser()
-            args.add_argument("target", help="Network or host to scan")
+            args.add_argument("target", help="Network or host to scan", type=str)
             args.add_argument("--udp", "-sU", help="UDP Scan, default -sS syn", action='store_true')
             args.add_argument("--tcp", "-sT", help="TCP Scan, default -sS syn", action='store_true')
             args.add_argument("--ver", "-sV", help="Determine service/version info", action='store_true')
@@ -43,8 +43,14 @@ class Deeper:
             args.add_argument("--no_random", "-r", help="Port range will not be randomised", action='store_true')
             args.add_argument("--procs", "-z", help="Number of processes to spawn, 1-999, default 256", type=int)
             parsed = args.parse_args()
+
             self.target = parsed.target
-            self.logfile = os.getcwd() + "/deeper_" + self.target + "_" + self.timestamp + ".log"
+            if "/" in self.target:
+                log_target = str(self.target).replace("/", "_")
+            else:
+                log_target = self.target
+
+            self.logfile = os.getcwd() + "/deeper_" + log_target + "_" + self.timestamp + ".log"
             self.no_random = parsed.no_random
             if parsed.procs:
                 if parsed.procs > 0 and parsed.procs < 1000:
