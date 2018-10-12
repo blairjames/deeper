@@ -19,6 +19,7 @@ class Deeper:
             self.top_tcp = False
             self.ports = False
             self.no_random = False
+            self.ip_splitting = False
             self.command = ""
             self.target = ""
             self.scan_type = ""
@@ -26,7 +27,9 @@ class Deeper:
             self.max = ""
             self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
             self.logfile = ""
+            self.port_cnt: int = 0
             self.procs: int = 0
+            self.port = ""
         except Exception as e:
             print("Error! in __init__: " + str(e))
 
@@ -37,6 +40,8 @@ class Deeper:
             args.add_argument("target", help="Network or host to scan", type=str)
             args.add_argument("--udp", "-sU", help="UDP Scan, default -sS syn", action='store_true')
             args.add_argument("--tcp", "-sT", help="TCP Scan, default -sS syn", action='store_true')
+            args.add_argument("--ip", "-i", help="Spawn processes per IP, rather than by port. "
+                                                 "Use when scanning a larger network for a single port.", action="store_true")
             args.add_argument("--ver", "-sV", help="Determine service/version info", action='store_true')
             args.add_argument("--time", "-T", help="nmap time profile T1-5, default -T2")
             args.add_argument("--ports", "-p", help="Port range eg. \"80-443\"", type=str)
@@ -69,6 +74,9 @@ class Deeper:
             if parsed.ver:
                 self.command = self.command + "-sCV --version-all "
 
+            if parsed.ip:
+                self.ip_splitting = parsed.ip
+
             if not parsed.udp and not parsed.tcp:
                 self.scan_type = "-sS"
             if parsed.tcp:
@@ -84,9 +92,11 @@ class Deeper:
                     print("TCP and UDP scans are mutually exclusive. Please select only one.")
                     exit(1)
             if parsed.ports:
-                if not "-" in parsed.ports or len(parsed.ports) > 12:
-                    print("\nPlease specify a range of ports. \"1-1024\"")
+                if len(parsed.ports) > 50:
+                    print("\nPlease specify a range of ports. example: \"1-1024\"")
                     exit(1)
+                elif "-" not in parsed.ports:
+                    self.port = str(parsed.ports)
                 else:
                     pmin, pmax = parsed.ports.split("-")
                     self.min = pmin
@@ -97,6 +107,7 @@ class Deeper:
                     self.top_udp = True
                 else:
                     self.top_tcp = True
+
         except Exception as e:
             print("Error! in get_args: " + str(e))
 
@@ -111,7 +122,7 @@ class Deeper:
                 raise Exception
             with open(path, "r") as file:
                 ports = file.readlines()
-                ports = [str(b) for b in str(ports).split(",")]
+                ports = [str(b).rstrip() for b in str(ports).split(",")]
             if not self.no_random:
                 random.shuffle(ports)
             return ports
@@ -138,18 +149,70 @@ class Deeper:
             print("Error in command_runner: " + str(e))
 
 
-    def controller(self):
+    def get_mask_addresses(self, mask: int) -> int:
         try:
-            if self.top_tcp:
-                ports = self.get_top_ports_list("tcp")
-            elif self.top_udp:
-                ports = self.get_top_ports_list("udp")
+            if mask < 24 or mask > 27:
+                print("\nPlease use a mask between 24 and 27.")
+                exit(1)
+            if mask == 27:
+                ip_cnt = 32
+            elif mask == 26:
+                ip_cnt = 64
+            elif mask == 25:
+                ip_cnt = 127
+            elif mask == 24:
+                ip_cnt = 255
             else:
-                ports = self.get_ports()
+                raise Exception
+            return ip_cnt
+        except Exception as e:
+            print("Error in get_mask_addresses: " + str(e))
+
+
+    def ip_cmd(self, ip):
+        cmd = (self.command + str(ip) + " " + self.scan_type + " -p " + self.port + " >> " + self.logfile)
+        print(cmd)
+        subprocess.run([cmd], shell=True)
+
+
+    def ip_cmd_runner(self, addresses):
+        try:
+            with futures.ProcessPoolExecutor(self.procs) as pool:
+                pool.map(self.ip_cmd, addresses)
+        except Exception as e:
+            print("Error in ip_cmd_runner: " + str(e))
+
+
+    def ip_controller(self):
+        try:
+            net, mask = self.target.split("/")
+            numb_ips = self.get_mask_addresses(int(mask))
+            addresses = [str(i) for i in range(0, numb_ips)]
+            net = str(net).rstrip("0")
+            addresses = [net + a for a in addresses]
+            self.ip_cmd_runner(addresses)
+        except Exception as e:
+            print("Error in ip_controller: " + str(e))
+
+
+    def controller(self, ports):
+        try:
             with futures.ProcessPoolExecutor(self.procs) as pool:
                 pool.map(self.command_runner, ports)
         except Exception as e:
             print("Error! in controller: " + str(e))
+
+
+    def port_controller(self):
+        if self.top_tcp:
+            ports = self.get_top_ports_list("tcp")
+        elif self.top_udp:
+            ports = self.get_top_ports_list("udp")
+        elif self.port:
+            ports = [self.port]
+        else:
+            ports = self.get_ports()
+        return ports
 
 
     def banner(self):
@@ -219,7 +282,16 @@ if __name__ == '__main__':
         new_Nmap.banner()
         print("\nWARNING! This program intentionally utalises system resources for performance.\n"
               "Your system may become temporarily unresponsive.\n\nProcessing..")
-        new_Nmap.controller()
+
+        ports = new_Nmap.port_controller()
+
+        if new_Nmap.ip_splitting:
+            for p in ports:
+                new_Nmap.port = str(p)
+                new_Nmap.ip_controller()
+        else:
+            new_Nmap.controller(ports)
+
         print("Calculating results..")
         new_Nmap.display_results()
         t2 = time.perf_counter()
