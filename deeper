@@ -25,11 +25,12 @@ class Deeper:
             self.scan_type = ""
             self.min = ""
             self.max = ""
-            self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
+            self.port = ""
             self.logfile = ""
+            self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
             self.port_cnt: int = 0
             self.procs: int = 0
-            self.port = ""
+
         except Exception as e:
             print("Error! in __init__: " + str(e))
 
@@ -79,18 +80,21 @@ class Deeper:
 
             if not parsed.udp and not parsed.tcp:
                 self.scan_type = "-sS"
+
             if parsed.tcp:
                 if not parsed.udp:
                     self.scan_type = "-sT"
                 else:
                     print("TCP and UDP scans are mutually exclusive. Please select only one.")
                     exit(1)
+
             if parsed.udp:
                 if not parsed.tcp:
                     self.scan_type = "-sU"
                 else:
                     print("TCP and UDP scans are mutually exclusive. Please select only one.")
                     exit(1)
+
             if parsed.ports:
                 if len(parsed.ports) > 50:
                     print("\nPlease specify a range of ports. example: \"1-1024\"")
@@ -102,6 +106,7 @@ class Deeper:
                     self.min = pmin
                     self.max = pmax
                     self.ports = True
+
             elif not parsed.ports:
                 if parsed.udp:
                     self.top_udp = True
@@ -138,15 +143,6 @@ class Deeper:
             return ports
         except Exception as e:
             print("Error! in get_ports: " + str(e))
-
-
-    def command_runner(self, port):
-        try:
-            cmd = (self.command + self.target + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
-            print(cmd)
-            subprocess.run([cmd],stdout=subprocess.PIPE, shell=True)
-        except Exception as e:
-            print("Error in command_runner: " + str(e))
 
 
     def get_mask_addresses(self, mask: int) -> int:
@@ -193,6 +189,15 @@ class Deeper:
             self.ip_cmd_runner(addresses)
         except Exception as e:
             print("Error in ip_controller: " + str(e))
+
+
+    def command_runner(self, port):
+        try:
+            cmd = (self.command + self.target + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
+            print(cmd)
+            subprocess.run([cmd],stdout=subprocess.PIPE, shell=True)
+        except Exception as e:
+            print("Error in command_runner: " + str(e))
 
 
     def controller(self, ports):
@@ -284,7 +289,6 @@ if __name__ == '__main__':
               "Your system may become temporarily unresponsive.\n\nProcessing..")
 
         ports = new_Nmap.port_controller()
-
         if new_Nmap.ip_splitting:
             for p in ports:
                 new_Nmap.port = str(p)
@@ -297,5 +301,6 @@ if __name__ == '__main__':
         t2 = time.perf_counter()
         print("\nTotal Execution Time: " + str(round(t2 - t1, 4)) + "sec\n")
         os.system("stty sane")
+
     except Exception as e:
         print("Error! in main(): " + str(e))
