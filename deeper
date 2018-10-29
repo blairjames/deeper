@@ -30,6 +30,7 @@ class Deeper:
             self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
             self.port_cnt: int = 0
             self.procs: int = 0
+            self.port_list = []
 
         except Exception as e:
             print("Error! in __init__: " + str(e))
@@ -96,9 +97,11 @@ class Deeper:
                     exit(1)
 
             if parsed.ports:
-                if len(parsed.ports) > 50:
+                if len(parsed.ports) > 200:
                     print("\nPlease specify a range of ports. example: \"1-1024\"")
                     exit(1)
+                elif "," in parsed.ports:
+                    self.port_list = [parsed.ports.split(",")]
                 elif "-" not in parsed.ports:
                     self.port = str(parsed.ports)
                 else:
@@ -145,30 +148,30 @@ class Deeper:
             print("Error! in get_ports: " + str(e))
 
 
-    def get_mask_addresses(self, mask: int) -> int:
+    def get_mask_addresses(self, ip, mask):
         try:
-            if mask < 24 or mask > 27:
-                print("\nPlease use a mask between 24 and 27.")
-                exit(1)
-            if mask == 27:
-                ip_cnt = 32
-            elif mask == 26:
-                ip_cnt = 64
-            elif mask == 25:
-                ip_cnt = 127
-            elif mask == 24:
-                ip_cnt = 255
-            else:
-                raise Exception
-            return ip_cnt
+            oct1, oct2, oct3, oct4 = ip.split(".")
+            if mask == "24":
+                addresses = [str(oct1) + "." + str(oct2) + "." + str(oct3) + "." + str(i) + "." for i in range(0,255)]
+                return addresses
+
+            if mask == "23":
+                three = str(int(oct3) + 1)
+                one = [str(oct1) + "." + str(oct2) + "." + str(oct3) + "." + str(i) for i in range(0,255)]
+                two = [str(oct1) + "." + str(oct2) + "." + three + "." + str(i) for i in range(0,255)]
+                addresses = one + two
+                return addresses
+
         except Exception as e:
             print("Error in get_mask_addresses: " + str(e))
 
-
     def ip_cmd(self, ip):
-        cmd = (self.command + str(ip) + " " + self.scan_type + " -p " + self.port + " >> " + self.logfile)
-        print(cmd)
-        subprocess.run([cmd], shell=True)
+        try:
+            cmd = (self.command + str(ip) + " " + self.scan_type + " -p " + self.port + " >> " + self.logfile)
+            print(cmd)
+            subprocess.run([cmd], shell=True)
+        except Exception as e:
+            print("Error! in ip_cmd: " + str(e))
 
 
     def ip_cmd_runner(self, addresses):
@@ -182,10 +185,7 @@ class Deeper:
     def ip_controller(self):
         try:
             net, mask = self.target.split("/")
-            numb_ips = self.get_mask_addresses(int(mask))
-            addresses = [str(i) for i in range(0, numb_ips)]
-            net = str(net).rstrip("0")
-            addresses = [net + a for a in addresses]
+            addresses = self.get_mask_addresses(str(net), str(mask))
             self.ip_cmd_runner(addresses)
         except Exception as e:
             print("Error in ip_controller: " + str(e))
@@ -193,6 +193,7 @@ class Deeper:
 
     def command_runner(self, port):
         try:
+            print(str(port))
             cmd = (self.command + self.target + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
             print(cmd)
             subprocess.run([cmd],stdout=subprocess.PIPE, shell=True)
@@ -209,29 +210,37 @@ class Deeper:
 
 
     def port_controller(self):
-        if self.top_tcp:
-            ports = self.get_top_ports_list("tcp")
-        elif self.top_udp:
-            ports = self.get_top_ports_list("udp")
-        elif self.port:
-            ports = [self.port]
-        else:
-            ports = self.get_ports()
-        return ports
+        try:
+            if self.top_tcp:
+                ports = self.get_top_ports_list("tcp")
+            elif self.top_udp:
+                ports = self.get_top_ports_list("udp")
+            elif self.port:
+                ports = [self.port]
+            elif self.port_list:
+                ports = [self.ports]
+            else:
+                ports = self.get_ports()
+            return ports
+        except Exception as e:
+            print("Error in port_controller: " + str(e))
 
 
     def banner(self):
-        os.system("clear")
-        color = "blue"
-        print(termcolor.colored("***************************************************************************", color))
-        print(termcolor.colored("*  ________ ", color))
-        print(termcolor.colored("*  ___  __ \_____ _____ ________ _____ ________", color))
-        print(termcolor.colored("*  __  / / /_  _ \_  _ \___  __ \_  _ \__  ___/", color))
-        print(termcolor.colored("*  _  /_/ / /  __//  __/__  /_/ //  __/_  /    ", color))
-        print(termcolor.colored("*  /_____/  \___/ \___/ _  .___/ \___/ /_/", color))
-        print(termcolor.colored("*                       /_/     ", color))
-        print(termcolor.colored("*\n* Know thy self, know thy enemy. A thousand battles, a thousand victories.", color))
-        print(termcolor.colored("***************************************************************************", color))
+        try:
+            os.system("clear")
+            color = "blue"
+            print(termcolor.colored("***************************************************************************", color))
+            print(termcolor.colored("*  ________ ", color))
+            print(termcolor.colored("*  ___  __ \_____ _____ ________ _____ ________", color))
+            print(termcolor.colored("*  __  / / /_  _ \_  _ \___  __ \_  _ \__  ___/", color))
+            print(termcolor.colored("*  _  /_/ / /  __//  __/__  /_/ //  __/_  /    ", color))
+            print(termcolor.colored("*  /_____/  \___/ \___/ _  .___/ \___/ /_/", color))
+            print(termcolor.colored("*                       /_/     ", color))
+            print(termcolor.colored("*\n* Know thy self, know thy enemy. A thousand battles, a thousand victories.", color))
+            print(termcolor.colored("***************************************************************************", color))
+        except Exception as e:
+            print("Error! in banner: " + str(e))
 
 
     def display_results(self):
