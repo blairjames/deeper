@@ -1,126 +1,27 @@
 #!/usr/bin/env python3
 
-import argparse
-import os
 import sys
 import time
-import subprocess
-import datetime
+
+import arg_parse_deeper
+import exceptor
+import os
 import random
+import subprocess
 import termcolor
 from concurrent import futures
+from typing import List
 
 
 class Deeper:
 
     def __init__(self):
-        try:
-            self.top_udp = False
-            self.top_tcp = False
-            self.ports = False
-            self.no_random = False
-            self.ip_splitting = False
-            self.command = ""
-            self.target = ""
-            self.scan_type = ""
-            self.min = ""
-            self.max = ""
-            self.port = ""
-            self.logfile = ""
-            self.timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-            self.port_cnt: int = 0
-            self.procs: int = 0
-            self.port_list = []
-
-        except Exception as e:
-            print("Error! in __init__: " + str(e))
+        self.args = arg_parse_deeper.Argparse_Deeper()
+        self.argparse = self.args.get_args()
+        self.port = self.args.port
 
 
-    def get_args(self) -> argparse:
-        try:
-            args = argparse.ArgumentParser()
-            args.add_argument("target", help="Network or host to scan", type=str)
-            args.add_argument("--udp", "-sU", help="UDP Scan, default -sS syn", action='store_true')
-            args.add_argument("--tcp", "-sT", help="TCP Scan, default -sS syn", action='store_true')
-            args.add_argument("--ip", "-i", help="Spawn processes per IP, rather than by port. "
-                                                 "Use when scanning a larger network for a single port.", action="store_true")
-            args.add_argument("--ver", "-sV", help="Determine service/version info", action='store_true')
-            args.add_argument("--time", "-T", help="nmap time profile T1-5, default -T2")
-            args.add_argument("--ports", "-p", help="Port range eg. \"80-443\"", type=str)
-            args.add_argument("--no_random", "-r", help="Port range will not be randomised", action='store_true')
-            args.add_argument("--procs", "-z", help="Number of processes to spawn, 1-999, default 256", type=int)
-            parsed = args.parse_args()
-
-            self.target = parsed.target
-            if "/" in self.target:
-                log_target = str(self.target).replace("/", "_")
-            else:
-                log_target = self.target
-
-            self.logfile = os.getcwd() + "/deeper_" + log_target + "_" + self.timestamp + ".log"
-            self.no_random = parsed.no_random
-            if parsed.procs:
-                if parsed.procs > 0 and parsed.procs < 1000:
-                    self.procs = parsed.procs
-                else:
-                    print("Processes must be less than 1000 due to OS limitations.")
-                    exit(1)
-            else:
-                self.procs = 256
-
-            if parsed.time:
-                self.command = "nmap -Pn -v -T" + str(parsed.time) + " "
-            else:
-                self.command = "nmap -T2 -Pn -v "
-
-            if parsed.ver:
-                self.command = self.command + "-sCV --version-all "
-
-            if parsed.ip:
-                self.ip_splitting = parsed.ip
-
-            if not parsed.udp and not parsed.tcp:
-                self.scan_type = "-sS"
-
-            if parsed.tcp:
-                if not parsed.udp:
-                    self.scan_type = "-sT"
-                else:
-                    print("TCP and UDP scans are mutually exclusive. Please select only one.")
-                    exit(1)
-
-            if parsed.udp:
-                if not parsed.tcp:
-                    self.scan_type = "-sU"
-                else:
-                    print("TCP and UDP scans are mutually exclusive. Please select only one.")
-                    exit(1)
-
-            if parsed.ports:
-                if len(parsed.ports) > 200:
-                    print("\nPlease specify a range of ports. example: \"1-1024\"")
-                    exit(1)
-                elif "," in parsed.ports:
-                    self.port_list = [parsed.ports.split(",")]
-                elif "-" not in parsed.ports:
-                    self.port = str(parsed.ports)
-                else:
-                    pmin, pmax = parsed.ports.split("-")
-                    self.min = pmin
-                    self.max = pmax
-                    self.ports = True
-
-            elif not parsed.ports:
-                if parsed.udp:
-                    self.top_udp = True
-                else:
-                    self.top_tcp = True
-
-        except Exception as e:
-            print("Error! in get_args: " + str(e))
-
-
-    def get_top_ports_list(self, protocol):
+    def get_top_ports_list(self, protocol: str) -> List:
         try:
             if "tcp" in protocol:
                 path = os.getcwd() + "/tcp_ports_1000.txt"
@@ -130,100 +31,133 @@ class Deeper:
                 raise Exception
             with open(path, "r") as file:
                 ports = file.readlines()
-                ports = [str(b).rstrip() for b in str(ports).split(",")]
-            if not self.no_random:
+                ports = [p.rstrip("\n") for p in ports]
+            if not self.args.no_random:
                 random.shuffle(ports)
             return ports
         except Exception as e:
-            print("Error in get_top_ports_list: " + str(e))
+            exceptor.Exceptor().catchit("Error in get_top_ports_list", str(e))
 
 
-    def get_ports(self):
+    def get_ports(self) -> List:
         try:
-            ports = [str(i) for i in range(int(self.min), int(self.max)+1)]
-            if not self.no_random:
+            ports = [str(i) for i in range(int(self.args.min), int(self.args.max)+1)]
+            if not self.args.no_random:
                 random.shuffle(ports)
             return ports
         except Exception as e:
-            print("Error! in get_ports: " + str(e))
+            exceptor.Exceptor().catchit("Error! in get_ports", str(e))
 
 
-    def get_mask_addresses(self, ip, mask):
-        try:
+    def build_mask_addresses(self, ip: str, mask: str) -> List:
+         try:
             oct1, oct2, oct3, oct4 = ip.split(".")
-            if mask == "24":
-                addresses = [str(oct1) + "." + str(oct2) + "." + str(oct3) + "." + str(i) + "." for i in range(0,255)]
-                return addresses
+            third_octets = [int(oct3) + i for i in range(0, 255)]
+            addresses = []
+            for third in third_octets:
+                if third > 255:
+                    raise AssertionError
+                ips = [str(oct1) + "." + str(oct2) + "." + str(third) + "." +
+                       str(i) for i in range(0, 255)]
+                addresses = addresses + ips
+                if mask == "24":
+                    if third == int(oct3):
+                        return addresses
+                if mask == "23":
+                    if third == int(oct3) + 1:
+                        return addresses
+                if mask == "22":
+                    if third == int(oct3) + 3:
+                        return addresses
+                if mask == "21":
+                    if third == int(oct3) + 7:
+                        return addresses
+                if mask == "20":
+                    if third == int(oct3) + 15:
+                        return addresses
+                if mask == "16":
+                    if third == int(oct3) + 254:
+                        return addresses
+         except AssertionError as a:
+             exceptor.Exceptor().catchit("build_mask_addresses: Third Octet exceeded 255.", str(a))
+         except Exception as e:
+             exceptor.Exceptor().catchit("build_mask_addresses", str(e))
 
-            if mask == "23":
-                three = str(int(oct3) + 1)
-                one = [str(oct1) + "." + str(oct2) + "." + str(oct3) + "." + str(i) for i in range(0,255)]
-                two = [str(oct1) + "." + str(oct2) + "." + three + "." + str(i) for i in range(0,255)]
-                addresses = one + two
-                return addresses
 
-        except Exception as e:
-            print("Error in get_mask_addresses: " + str(e))
-
-    def ip_cmd(self, ip):
+    def get_mask_addresses(self, ip: str, mask: str) -> List:
         try:
-            cmd = (self.command + str(ip) + " " + self.scan_type + " -p " + self.port + " >> " + self.logfile)
+            if (int(mask) > 19 and int(mask) < 24
+                    or int(mask) == 16
+                    or int(mask) == 24):
+                addresses = self.build_mask_addresses(ip, mask)
+                return addresses
+            else:
+                print("\n Sorry... only /16 /20 /21 /22 /23 and /24 networks are permitted.\n")
+                exit(1)
+        except Exception as e:
+            exceptor.Exceptor().catchit("Error in get_mask_addresses", str(e))
+
+
+    def ip_cmd(self, ip: str):
+        try:
+            cmd = (self.args.command + str(ip) + " " + self.args.scan_type + " -p " +
+                   self.port + " >> " + self.args.logfile)
             print(cmd)
             subprocess.run([cmd], shell=True)
         except Exception as e:
-            print("Error! in ip_cmd: " + str(e))
+            exceptor.Exceptor().catchit("Error! in ip_cmd", str(e))
 
 
-    def ip_cmd_runner(self, addresses):
+    def ip_cmd_runner(self, addresses: List):
         try:
-            with futures.ProcessPoolExecutor(self.procs) as pool:
+            with futures.ProcessPoolExecutor(self.args.procs) as pool:
                 pool.map(self.ip_cmd, addresses)
         except Exception as e:
-            print("Error in ip_cmd_runner: " + str(e))
+            exceptor.Exceptor().catchit("Error in ip_cmd_runner", str(e))
 
 
     def ip_controller(self):
         try:
-            net, mask = self.target.split("/")
+            net, mask = self.args.target.split("/")
             addresses = self.get_mask_addresses(str(net), str(mask))
             self.ip_cmd_runner(addresses)
         except Exception as e:
-            print("Error in ip_controller: " + str(e))
+            exceptor.Exceptor().catchit("Error in ip_controller", str(e))
 
 
-    def command_runner(self, port):
+    def command_runner(self, port: str):
         try:
-            print(str(port))
-            cmd = (self.command + self.target + " " + self.scan_type + " -p " + port + " >> " + self.logfile)
+            cmd = (self.args.command + self.args.target + " " + self.args.scan_type +
+                   " -p " + port + " >> " + self.args.logfile)
             print(cmd)
-            subprocess.run([cmd],stdout=subprocess.PIPE, shell=True)
+            subprocess.run([cmd], shell=True)
         except Exception as e:
-            print("Error in command_runner: " + str(e))
+            exceptor.Exceptor().catchit("Error in command_runner", str(e))
 
 
-    def controller(self, ports):
+    def controller(self, ports: List):
         try:
-            with futures.ProcessPoolExecutor(self.procs) as pool:
+            with futures.ProcessPoolExecutor(self.args.procs) as pool:
                 pool.map(self.command_runner, ports)
         except Exception as e:
-            print("Error! in controller: " + str(e))
+            exceptor.Exceptor().catchit("Error! in controller", str(e))
 
 
-    def port_controller(self):
+    def port_controller(self) -> List:
         try:
-            if self.top_tcp:
+            if self.args.top_tcp:
                 ports = self.get_top_ports_list("tcp")
-            elif self.top_udp:
+            elif self.args.top_udp:
                 ports = self.get_top_ports_list("udp")
-            elif self.port:
-                ports = [self.port]
-            elif self.port_list:
-                ports = [self.ports]
+            elif self.args.port:
+                ports = [self.args.port]
+            elif self.args.port_list:
+                ports = [self.args.ports]
             else:
                 ports = self.get_ports()
             return ports
         except Exception as e:
-            print("Error in port_controller: " + str(e))
+            exceptor.Exceptor().catchit("Error in port_controller", str(e))
 
 
     def banner(self):
@@ -240,15 +174,20 @@ class Deeper:
             print(termcolor.colored("*\n* Know thy self, know thy enemy. A thousand battles, a thousand victories.", color))
             print(termcolor.colored("***************************************************************************", color))
         except Exception as e:
-            print("Error! in banner: " + str(e))
+            exceptor.Exceptor().catchit("Error! in banner", str(e))
 
 
     def display_results(self):
         try:
             t1 = time.perf_counter()
-            with open(self.logfile, "r") as file:
+            with open(self.args.logfile, "r") as file:
                 logs = file.readlines()
+                if not logs:
+                    print("logs file empty.")
+                    raise Exception
                 ports = [l for l in logs if "tcp" in l or "udp" in l]
+                if not ports:
+                    raise Exception
                 [print(p.rstrip("\n")) for p in ports]
                 closed = [p for p in ports if "closed" in p]
                 filter = [p for p in ports if "filter" in p]
@@ -273,7 +212,7 @@ class Deeper:
             t2 = time.perf_counter()
             print("\nTime to calculate and display results: " + str(round(t2-t1, 4)) + "sec\n")
         except Exception as e:
-            print("Error! in display_results: " + str(e))
+            exceptor.Exceptor().catchit("Error! in display_results", str(e))
 
 
 def check_python_version():
@@ -284,7 +223,7 @@ def check_python_version():
             print("\nThis application requires Python 3.6 or greater.\nhttps://www.python.org/downloads/\n")
             exit(1)
     except Exception as e:
-        print("Error! in check_python_version: " + str(e))
+        exceptor.Exceptor().catchit("check_python_version", e)
 
 
 if __name__ == '__main__':
@@ -292,24 +231,20 @@ if __name__ == '__main__':
         check_python_version()
         t1 = time.perf_counter()
         new_Nmap = Deeper()
-        new_Nmap.get_args()
         new_Nmap.banner()
         print("\nWARNING! This program intentionally utalises system resources for performance.\n"
               "Your system may become temporarily unresponsive.\n\nProcessing..")
-
         ports = new_Nmap.port_controller()
-        if new_Nmap.ip_splitting:
+        if new_Nmap.args.ip_splitting:
             for p in ports:
                 new_Nmap.port = str(p)
                 new_Nmap.ip_controller()
         else:
             new_Nmap.controller(ports)
-
         print("Calculating results..")
         new_Nmap.display_results()
         t2 = time.perf_counter()
         print("\nTotal Execution Time: " + str(round(t2 - t1, 4)) + "sec\n")
         os.system("stty sane")
-
     except Exception as e:
-        print("Error! in main(): " + str(e))
+        exceptor.Exceptor().catchit("main()", e)
