@@ -19,6 +19,10 @@ class Deeper:
         self.args = arg_parse_deeper.Argparse_Deeper()
         self.argparse = self.args.get_args()
         self.port = self.args.port
+<<<<<<< HEAD
+        self.top_ten_list = ["21","22","23","25","80","110","139","143","443","445","3389"]
+=======
+>>>>>>> cb2853016e5d6bcd97b9e8528b1acd2d34d606b8
 
 
     def get_top_ports_list(self, protocol: str) -> List:
@@ -46,7 +50,11 @@ class Deeper:
                 random.shuffle(ports)
             return ports
         except Exception as e:
+<<<<<<< HEAD
+            exceptor.Exceptor().catchit("get_ports", str(e))
+=======
             exceptor.Exceptor().catchit("Error! in get_ports", str(e))
+>>>>>>> cb2853016e5d6bcd97b9e8528b1acd2d34d606b8
 
 
     def build_mask_addresses(self, ip: str, mask: str) -> List:
@@ -140,12 +148,32 @@ class Deeper:
             with futures.ProcessPoolExecutor(self.args.procs) as pool:
                 pool.map(self.command_runner, ports)
         except Exception as e:
+<<<<<<< HEAD
+            exceptor.Exceptor().catchit("controller", str(e))
+=======
             exceptor.Exceptor().catchit("Error! in controller", str(e))
+>>>>>>> cb2853016e5d6bcd97b9e8528b1acd2d34d606b8
 
 
     def port_controller(self) -> List:
         try:
             if self.args.top_tcp:
+<<<<<<< HEAD
+                print("tcp")
+                ports = self.get_top_ports_list("tcp")
+            elif self.args.top_udp:
+                print("udp")
+                ports = self.get_top_ports_list("udp")
+            elif self.args.port:
+                print("port")
+                ports = [self.args.port]
+            elif self.args.port_list:
+                print("port_list")
+                ports = [self.args.ports]
+            elif self.args.top_ten:
+                print("top_ten")
+                ports = self.top_ten_list
+=======
                 ports = self.get_top_ports_list("tcp")
             elif self.args.top_udp:
                 ports = self.get_top_ports_list("udp")
@@ -153,6 +181,7 @@ class Deeper:
                 ports = [self.args.port]
             elif self.args.port_list:
                 ports = [self.args.ports]
+>>>>>>> cb2853016e5d6bcd97b9e8528b1acd2d34d606b8
             else:
                 ports = self.get_ports()
             return ports
@@ -174,7 +203,11 @@ class Deeper:
             print(termcolor.colored("*\n* Know thy self, know thy enemy. A thousand battles, a thousand victories.", color))
             print(termcolor.colored("***************************************************************************", color))
         except Exception as e:
+<<<<<<< HEAD
+            exceptor.Exceptor().catchit("banner", str(e))
+=======
             exceptor.Exceptor().catchit("Error! in banner", str(e))
+>>>>>>> cb2853016e5d6bcd97b9e8528b1acd2d34d606b8
 
 
     def display_results(self):
@@ -183,11 +216,21 @@ class Deeper:
             with open(self.args.logfile, "r") as file:
                 logs = file.readlines()
                 if not logs:
+<<<<<<< HEAD
+                    print("log file empty.")
+                    raise Exception
+                down = [l for l  in logs if "host down" in l]
+                [print("Host appears down: " + d) for d in down]
+                ports = [l for l in logs if "tcp" in l or "udp" in l]
+                if not ports:
+                    print("Host/s seem to be down..")
+=======
                     print("logs file empty.")
                     raise Exception
                 ports = [l for l in logs if "tcp" in l or "udp" in l]
                 if not ports:
                     raise Exception
+>>>>>>> cb2853016e5d6bcd97b9e8528b1acd2d34d606b8
                 [print(p.rstrip("\n")) for p in ports]
                 closed = [p for p in ports if "closed" in p]
                 filter = [p for p in ports if "filter" in p]
@@ -212,7 +255,11 @@ class Deeper:
             t2 = time.perf_counter()
             print("\nTime to calculate and display results: " + str(round(t2-t1, 4)) + "sec\n")
         except Exception as e:
+<<<<<<< HEAD
+            exceptor.Exceptor().catchit("display_results", str(e))
+=======
             exceptor.Exceptor().catchit("Error! in display_results", str(e))
+>>>>>>> cb2853016e5d6bcd97b9e8528b1acd2d34d606b8
 
 
 def check_python_version():
