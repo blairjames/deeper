@@ -127,6 +127,7 @@ class Deeper:
 
     def command_runner(self, port: str):
         try:
+            print(port)
             cmd = (self.args.command + self.args.target + " " + self.args.scan_type +
                    " -p " + port + " >> " + self.args.logfile)
             print(cmd)
@@ -146,19 +147,14 @@ class Deeper:
     def port_controller(self) -> List:
         try:
             if self.args.top_tcp:
-                print("tcp")
                 ports = self.get_top_ports_list("tcp")
             elif self.args.top_udp:
-                print("udp")
                 ports = self.get_top_ports_list("udp")
             elif self.args.port:
-                print("port")
                 ports = [self.args.port]
             elif self.args.port_list:
-                print("port_list")
-                ports = [self.args.ports]
+                ports = [p for p in self.args.port_list for p in p]
             elif self.args.top_ten:
-                print("top_ten")
                 ports = self.top_ten_list
             elif self.args.port:
                 ports = [self.args.port]
