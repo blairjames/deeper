@@ -49,7 +49,12 @@ class Argparse_Deeper:
 
             self.target = parsed.target
             if "/" in self.target:
-                log_target = str(self.target).replace("/", "_")
+                if parsed.ip:
+                    self.ip_splitting = parsed.ip
+                    log_target = str(self.target).replace("/", "_")
+                else:
+                    self.target = self.target.split("/", 1)[0]
+                    log_target = self.target
             else:
                 log_target = self.target
 
@@ -71,9 +76,6 @@ class Argparse_Deeper:
 
             if parsed.ver:
                 self.command = self.command + "-sCV --version-all "
-
-            if parsed.ip:
-                self.ip_splitting = parsed.ip
 
             if not parsed.udp and not parsed.tcp:
                 self.scan_type = "-sS"
