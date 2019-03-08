@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 
-import sys
-import time
+from time import perf_counter
 import arg_parse_deeper
 import exceptor
-import os
-import random
-import subprocess
-import termcolor
 from concurrent import futures
+from os import getcwd, system
+from random import shuffle
+from subprocess import run
+from termcolor import colored
 from typing import List
 
 
@@ -24,16 +23,16 @@ class Deeper:
     def get_top_ports_list(self, protocol: str) -> List:
         try:
             if "tcp" in protocol:
-                path = os.getcwd() + "/tcp_ports_1000.txt"
+                path = getcwd() + "/tcp_ports_1000.txt"
             elif "udp" in protocol:
-                path = os.getcwd() + "/udp_ports_1000.txt"
+                path = getcwd() + "/udp_ports_1000.txt"
             else:
                 raise Exception
             with open(path, "r") as file:
                 ports = file.readlines()
                 ports = [p.rstrip("\n") for p in ports]
             if not self.args.no_random:
-                random.shuffle(ports)
+                shuffle(ports)
             return ports
         except Exception as e:
             exceptor.Exceptor().catchit("get_top_ports_list", str(e))
@@ -43,7 +42,7 @@ class Deeper:
         try:
             ports = [str(i) for i in range(int(self.args.min), int(self.args.max)+1)]
             if not self.args.no_random:
-                random.shuffle(ports)
+                shuffle(ports)
             return ports
         except Exception as e:
             exceptor.Exceptor().catchit("get_ports", str(e))
@@ -103,7 +102,7 @@ class Deeper:
             cmd = (self.args.command + str(ip) + " " + self.args.scan_type + " -p " +
                    self.port + " >> " + self.args.logfile)
             print(cmd)
-            subprocess.run([cmd], shell=True)
+            run([cmd], shell=True)
         except Exception as e:
             exceptor.Exceptor().catchit("ip_cmd", str(e))
 
@@ -131,7 +130,7 @@ class Deeper:
             cmd = (self.args.command + self.args.target + " " + self.args.scan_type +
                    " -p " + port + " >> " + self.args.logfile)
             print(cmd)
-            subprocess.run([cmd], shell=True)
+            run([cmd], shell=True)
         except Exception as e:
             exceptor.Exceptor().catchit("command_runner", str(e))
 
@@ -167,24 +166,24 @@ class Deeper:
 
     def banner(self):
         try:
-            os.system("clear")
+            system("clear")
             color = "blue"
-            print(termcolor.colored("***************************************************************************", color))
-            print(termcolor.colored("*  ________ ", color))
-            print(termcolor.colored("*  ___  __ \_____ _____ ________ _____ ________", color))
-            print(termcolor.colored("*  __  / / /_  _ \_  _ \___  __ \_  _ \__  ___/", color))
-            print(termcolor.colored("*  _  /_/ / /  __//  __/__  /_/ //  __/_  /    ", color))
-            print(termcolor.colored("*  /_____/  \___/ \___/ _  .___/ \___/ /_/", color))
-            print(termcolor.colored("*                       /_/     ", color))
-            print(termcolor.colored("*\n* Know thy self, know thy enemy. A thousand battles, a thousand victories.", color))
-            print(termcolor.colored("***************************************************************************", color))
+            print(colored("***************************************************************************", color))
+            print(colored("*  ________ ", color))
+            print(colored("*  ___  __ \_____ _____ ________ _____ ________", color))
+            print(colored("*  __  / / /_  _ \_  _ \___  __ \_  _ \__  ___/", color))
+            print(colored("*  _  /_/ / /  __//  __/__  /_/ //  __/_  /    ", color))
+            print(colored("*  /_____/  \___/ \___/ _  .___/ \___/ /_/", color))
+            print(colored("*                       /_/     ", color))
+            print(colored("*\n* Know thy self, know thy enemy. A thousand battles, a thousand victories.", color))
+            print(colored("***************************************************************************", color))
         except Exception as e:
             exceptor.Exceptor().catchit("banner", str(e))
 
 
     def display_results(self):
         try:
-            t1 = time.perf_counter()
+            t1 = perf_counter()
             with open(self.args.logfile, "r") as file:
                 logs = file.readlines()
                 if not logs:
@@ -221,28 +220,15 @@ class Deeper:
                     print("*********************************")
                 else:
                     print("\nNo ports discovered open. :(")
-            t2 = time.perf_counter()
+            t2 = perf_counter()
             print("\nTime to calculate and display results: " + str(round(t2-t1, 4)) + "sec\n")
         except Exception as e:
             exceptor.Exceptor().catchit("display_results", str(e))
 
 
-def check_python_version():
-    try:
-        x, y, z, a, b = sys.version_info
-        ver = str(x) + str(y)
-        if int(ver) < 36:
-            print("\nThis application requires Python 3.6 or greater.\nhttps://www.python.org/downloads/\n")
-            exit(1)
-    except Exception as e:
-        exceptor.Exceptor().catchit("check_python_version", e)
-
-
-#TODO: -p switch comma sep
 if __name__ == '__main__':
     try:
-        check_python_version()
-        t1 = time.perf_counter()
+        t1 = perf_counter()
         new_Nmap = Deeper()
         new_Nmap.banner()
         print("\nWARNING! This program intentionally utalises system resources for performance.\n"
@@ -256,9 +242,9 @@ if __name__ == '__main__':
             new_Nmap.controller(ports)
         print("Calculating results..")
         new_Nmap.display_results()
-        t2 = time.perf_counter()
+        t2 = perf_counter()
         print("\nTotal Execution Time: " + str(round(t2 - t1, 4)) + "sec\n")
-        os.system("stty sane")
+        system("stty sane")
     except Exception as e:
         exceptor.Exceptor().catchit("main()", e)
 
