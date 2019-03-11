@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 from time import perf_counter
-import arg_parse_deeper
-import exceptor
 from concurrent import futures
 from os import getcwd, system
 from random import shuffle
 from subprocess import run
 from termcolor import colored
 from typing import List
+import arg_parse_deeper
+import exceptor
 
 
 class Deeper:

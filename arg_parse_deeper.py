@@ -4,7 +4,8 @@ import os
 import datetime
 import exceptor
 
-
+#TODO: make imp0rts from
+#validate ip addresses - no letters no more than 3 digits
 class Argparse_Deeper:
 
     def __init__(self):
@@ -26,6 +27,16 @@ class Argparse_Deeper:
         self.port_cnt: int = 0
         self.procs: int = 0
         self.port_list = []
+
+    def check_for_network_address(self):
+        if self.target.split(".")[3] == "0":
+            self.target = self.target + "/24"
+            self.ip_splitting = True
+            log_target = self.target.replace("/", "_")
+            self.logfile = os.getcwd() + "/deeper_" + log_target + "_" + self.timestamp + ".log"
+            return True
+        else:
+            return False
 
 
     def get_args(self) -> argparse:
@@ -52,13 +63,17 @@ class Argparse_Deeper:
                 if parsed.ip:
                     self.ip_splitting = parsed.ip
                     log_target = str(self.target).replace("/", "_")
+                    self.logfile = os.getcwd() + "/deeper_" + log_target + "_" + self.timestamp + ".log"
                 else:
-                    self.target = self.target.split("/", 1)[0]
-                    log_target = self.target
+                    if not self.check_for_network_address():
+                        self.target = self.target.split("/", 1)[0]
+                        log_target = self.target
+                        self.logfile = os.getcwd() + "/deeper_" + log_target + "_" + self.timestamp + ".log"
             else:
-                log_target = self.target
+                if not self.check_for_network_address():
+                    log_target = self.target
+                    self.logfile = os.getcwd() + "/deeper_" + log_target + "_" + self.timestamp + ".log"
 
-            self.logfile = os.getcwd() + "/deeper_" + log_target + "_" + self.timestamp + ".log"
             self.no_random = parsed.no_random
             if parsed.procs:
                 if parsed.procs > 0 and parsed.procs < 1000:
@@ -116,7 +131,6 @@ class Argparse_Deeper:
                         self.top_ten = True
                     else:
                         self.top_tcp = True
-
 
         except Exception as e:
             self.exceptor.catchit("get_args", e)
