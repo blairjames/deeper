@@ -17,6 +17,7 @@ class Argparse_Deeper:
         self.no_random = False
         self.ip_splitting = False
         self.top_ten = False
+        self.internal_assessment = False
         self.command = ""
         self.target = ""
         self.scan_type = ""
@@ -47,15 +48,15 @@ class Argparse_Deeper:
             args.add_argument("--tcp", "-sT", help="TCP Scan, default -sS syn", action='store_true')
             args.add_argument("--ip", "-i", help="Spawn processes per IP, rather than by port. "
                                                  "Use when scanning a larger network for a single port.",
-                              action="store_true")
+                                                 action="store_true")
             args.add_argument("--ver", "-sV", help="Determine service/version info", action='store_true')
             args.add_argument("--time", "-T", help="nmap time profile T1-5, default -T2")
             args.add_argument("--ports", "-p", help="Port range eg. \"80-443\"", type=str)
-
+            args.add_argument("--internal", help="Ports for internal assessments", action='store_true')
             args.add_argument("--top-ten", "-tt", help="Scan top ten most common TCP ports.", action='store_true')
-
             args.add_argument("--no_random", "-r", help="Port range will not be randomised", action='store_true')
             args.add_argument("--procs", "-z", help="Number of processes to spawn, 1-999, default 256", type=int)
+
             parsed = args.parse_args()
 
             self.target = parsed.target
@@ -122,15 +123,16 @@ class Argparse_Deeper:
                     self.min = pmin
                     self.max = pmax
                     self.ports = True
+
             elif not parsed.ports:
+                if parsed.internal:
+                    self.internal_assessment = True
                 if parsed.udp:
                     self.top_udp = True
+                if parsed.top_ten:
+                    self.top_ten = True
                 else:
-
-                    if parsed.top_ten:
-                        self.top_ten = True
-                    else:
-                        self.top_tcp = True
+                    self.top_tcp = True
 
         except Exception as e:
             self.exceptor.catchit("get_args", e)

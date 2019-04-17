@@ -7,6 +7,7 @@ from random import shuffle
 from subprocess import run
 from termcolor import colored
 from typing import List
+from getpass import getuser
 import arg_parse_deeper
 import exceptor
 
@@ -17,7 +18,17 @@ class Deeper:
         self.args = arg_parse_deeper.Argparse_Deeper()
         self.argparse = self.args.get_args()
         self.port = self.args.port
-        self.top_ten_list = ["21","22","23","25","80","110","139","143","443","445","3389"]
+        self.open_ports: List = []
+        self.pwd: str = getcwd()
+        self.top_ten_list: List = ["21","22","23","25","80","110","139","143","443","445","3389"]
+        self.internal_ports: List = ["21", "22","23","25", "53", "67", "68", "69", "101", "123", "161", "80","110",
+                               "135", "139","143","443","445", "3389", "4786", "5800", "5801", "5808", "5809",
+                               "5900", "5901", "5909", "500", "88", "4434", "4343", "4500", "8080", "8081",
+                               "8082", "8083", "8088", "8200", "8211", "8888", "9999", "9090", "7777", "389",
+                               "636",  "1801", "1810, ""1433", "1434", "2382", "2383", "1521", "1630", "3938",
+                               "3200", "3300", "8000", "3306", "33060", "990", "1027", "2068", "6380", "6379",
+                               "8089", "9997", "514", "27017", "27018", "27019", "18209", "18210", "18211",
+                               "9000"]
 
 
     def get_top_ports_list(self, protocol: str) -> List:
@@ -126,7 +137,6 @@ class Deeper:
 
     def command_runner(self, port: str):
         try:
-            print(port)
             cmd = (self.args.command + self.args.target + " " + self.args.scan_type +
                    " -p " + port + " >> " + self.args.logfile)
             print(cmd)
@@ -145,7 +155,9 @@ class Deeper:
 
     def port_controller(self) -> List:
         try:
-            if self.args.top_tcp:
+            if self.args.internal_assessment:
+                ports = self.internal_ports
+            elif self.args.top_tcp:
                 ports = self.get_top_ports_list("tcp")
             elif self.args.top_udp:
                 ports = self.get_top_ports_list("udp")
@@ -179,6 +191,40 @@ class Deeper:
             print(colored("***************************************************************************", color))
         except Exception as e:
             exceptor.Exceptor().catchit("banner", str(e))
+
+
+    def writer(self, text: List):
+        try:
+            with open(self.args.logfile, "a") as file:
+                file.writelines(text)
+        except Exception as e:
+            print("Error! in writer " + str(e))
+
+
+    def go_deeper(self, opens: List):
+        try:
+            cmds = ["nmap -T2 -Pn -sS --reason -sCV --script=/usr/share/nmap/scripts/vulners.nse  " \
+                    "--version-all -p " + opens[x][0] + " " + opens[x][1] + " -oX " + self.args.logfile +
+                    ".xml --stylesheet=" + self.pwd + "/bootstrap.xsl" for x in range(opens.__len__())]
+            self.command_mapper(cmds)
+        except Exception as e:
+            exceptor.Exceptor().catchit("go_deeper", e)
+
+
+    def command_mapper(self, cmds: List):
+        try:
+            with futures.ProcessPoolExecutor(self.args.procs) as pool:
+                pool.map(self.command_exec, cmds)
+        except Exception as e:
+            exceptor.Exceptor().catchit("command_mapper", e)
+
+
+    def command_exec(self, cmd):
+        try:
+            print(cmd)
+            run([cmd], shell=True)
+        except Exception as e:
+            exceptor.Exceptor().catchit("command_exec", e)
 
 
     def display_results(self):
@@ -215,9 +261,23 @@ class Deeper:
                 print("Filtered: " + str(num_fl))
                 print("Open: " + str(num_op))
                 if num_op > 0:
-                    print("\n********** Open Ports **********")
+                    open_text = "\n********** Open Ports **********\n"
+                    stars = "\n*********************************\n"
+                    print(open_text)
                     [print(o.rstrip()) for o in open_ports]
-                    print("*********************************")
+                    print(stars)
+                    self.writer([open_text])
+                    self.writer(open_ports)
+                    self.writer([stars])
+
+                    #Get IP's and Ports as a Tuple
+                    opens = [tuple(o[21:].strip("\n").split("/tcp on ")) for o in open_ports]
+                    print("\nProceeding Deeper... \n")
+                    self.go_deeper(opens)
+
+                    file_in_browser = "file://" + self.args.logfile + ".xml"
+                    print(file_in_browser)
+                    run(["sudo -u " + getuser() + " /usr/bin/firefox " + file_in_browser], shell=True)
                 else:
                     print("\nNo ports discovered open. :(")
             t2 = perf_counter()
