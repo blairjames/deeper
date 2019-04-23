@@ -4,7 +4,7 @@ import os
 import datetime
 import exceptor
 
-#TODO: make imp0rts from
+#TODO: make imports from
 #validate ip addresses - no letters no more than 3 digits
 class Argparse_Deeper:
 
@@ -18,6 +18,8 @@ class Argparse_Deeper:
         self.ip_splitting = False
         self.top_ten = False
         self.internal_assessment = False
+        self.deeper = False
+        self.top_ports = 0
         self.command = ""
         self.target = ""
         self.scan_type = ""
@@ -39,7 +41,6 @@ class Argparse_Deeper:
         else:
             return False
 
-
     def get_args(self) -> argparse:
         try:
             args = argparse.ArgumentParser()
@@ -54,10 +55,15 @@ class Argparse_Deeper:
             args.add_argument("--ports", "-p", help="Port range eg. \"80-443\"", type=str)
             args.add_argument("--internal", help="Ports for internal assessments", action='store_true')
             args.add_argument("--top-ten", "-tt", help="Scan top ten most common TCP ports.", action='store_true')
+            args.add_argument("--top-ports", "-tp", help="Number of ports to scan. Nmap --top-ports", type=int)
             args.add_argument("--no_random", "-r", help="Port range will not be randomised", action='store_true')
             args.add_argument("--procs", "-z", help="Number of processes to spawn, 1-999, default 256", type=int)
+            args.add_argument("--deeper", "-d", help="Take open ports and enumerate further.", action='store_true')
 
             parsed = args.parse_args()
+
+            if parsed.deeper:
+                self.deeper = True
 
             self.target = parsed.target
             if "/" in self.target:
@@ -125,6 +131,12 @@ class Argparse_Deeper:
                     self.ports = True
 
             elif not parsed.ports:
+                if parsed.top_ports:
+                    parsed.top_ports = int(parsed.top_ports)
+                    if parsed.top_ports in [100, 2, 3, 4, 5, 6, 7, 8]:
+                        self.top_ports = parsed.top_ports
+                    else:
+                        print("Please enter one of the following values: [100, 2, 3, 4, 5, 6, 7, 8]")
                 if parsed.internal:
                     self.internal_assessment = True
                 if parsed.udp:

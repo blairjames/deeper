@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from time import perf_counter
+from time import perf_counter, sleep
 from concurrent import futures
 from os import getcwd, system
 from random import shuffle
@@ -18,6 +18,7 @@ class Deeper:
         self.args = arg_parse_deeper.Argparse_Deeper()
         self.argparse = self.args.get_args()
         self.port = self.args.port
+        self.top_ports: int = 0
         self.open_ports: List = []
         self.pwd: str = getcwd()
         self.top_ten_list: List = ["21","22","23","25","80","110","139","143","443","445","3389"]
@@ -33,10 +34,28 @@ class Deeper:
 
     def get_top_ports_list(self, protocol: str) -> List:
         try:
-            if "tcp" in protocol:
-                path = getcwd() + "/tcp_ports_1000.txt"
+            cwd = getcwd()
+            if self.top_ports:
+                if self.top_ports == 100:
+                    path = cwd + "/top_100.txt"
+                if self.top_ports == 2:
+                    path = cwd + "/top_2000.txt"
+                if self.top_ports == 3:
+                    path = cwd + "/top_3000.txt"
+                if self.top_ports == 4:
+                    path = cwd + "/top_4000.txt"
+                if self.top_ports == 5:
+                    path = cwd + "/top_5000.txt"
+                if self.top_ports == 6:
+                    path = cwd + "/top_6000.txt"
+                if self.top_ports == 7:
+                    path = cwd + "/top_7000.txt"
+                if self.top_ports == 8:
+                    path = cwd + "/top_8306.txt"
+            elif "tcp" in protocol:
+                path = cwd + "/tcp_ports_1000.txt"
             elif "udp" in protocol:
-                path = getcwd() + "/udp_ports_1000.txt"
+                path = cwd + "/udp_ports_1000.txt"
             else:
                 raise Exception
             with open(path, "r") as file:
@@ -157,6 +176,8 @@ class Deeper:
         try:
             if self.args.internal_assessment:
                 ports = self.internal_ports
+            elif self.args.top_ports:
+                ports = self.args.top_ports
             elif self.args.top_tcp:
                 ports = self.get_top_ports_list("tcp")
             elif self.args.top_udp:
@@ -204,8 +225,7 @@ class Deeper:
     def go_deeper(self, opens: List):
         try:
             cmds = ["nmap -T2 -Pn -sS --reason -sCV --script=/usr/share/nmap/scripts/vulners.nse  " \
-                    "--version-all -p " + opens[x][0] + " " + opens[x][1] + " -oX " + self.args.logfile +
-                    ".xml --stylesheet=" + self.pwd + "/bootstrap.xsl" for x in range(opens.__len__())]
+                    "--version-all -p " + opens[x][0] + " " + opens[x][1] for x in range(opens.__len__())]
             self.command_mapper(cmds)
         except Exception as e:
             exceptor.Exceptor().catchit("go_deeper", e)
@@ -221,7 +241,7 @@ class Deeper:
 
     def command_exec(self, cmd):
         try:
-            print(cmd)
+            print("\nCommand executed: \n" + cmd)
             run([cmd], shell=True)
         except Exception as e:
             exceptor.Exceptor().catchit("command_exec", e)
@@ -269,15 +289,10 @@ class Deeper:
                     self.writer([open_text])
                     self.writer(open_ports)
                     self.writer([stars])
-
-                    #Get IP's and Ports as a Tuple
-                    opens = [tuple(o[21:].strip("\n").split("/tcp on ")) for o in open_ports]
-                    print("\nProceeding Deeper... \n")
-                    self.go_deeper(opens)
-
-                    file_in_browser = "file://" + self.args.logfile + ".xml"
-                    print(file_in_browser)
-                    run(["sudo -u " + getuser() + " /usr/bin/firefox " + file_in_browser], shell=True)
+                    if self.args.deeper:
+                        opens = [tuple(o[21:].strip("\n").split("/tcp on ")) for o in open_ports]
+                        print("\nProceeding Deeper... \n")
+                        self.go_deeper(opens)
                 else:
                     print("\nNo ports discovered open. :(")
             t2 = perf_counter()
@@ -291,6 +306,9 @@ if __name__ == '__main__':
         t1 = perf_counter()
         new_Nmap = Deeper()
         new_Nmap.banner()
+        vulners = new_Nmap.pwd + "/vulners.nse"
+        run(["cp " + vulners + " /usr/share/nmap/scripts"], shell=True)
+        run(["NMAPDIR=" + new_Nmap.pwd], shell=True)
         print("\nWARNING! This program intentionally utalises system resources for performance.\n"
               "Your system may become temporarily unresponsive.\n\nProcessing..")
         ports = new_Nmap.port_controller()
