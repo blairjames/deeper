@@ -6,4 +6,4 @@ python:
      sudo: true
 provider: script
 install: pip3 install --upgrade pip
-script: python3 ./deeper/deeper sanguine.org.au
+script: python3 ./deeper sanguine.org.au
