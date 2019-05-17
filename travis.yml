@@ -1,9 +1,7 @@
 dist: xenial
 language: python
 python: 
-     - "3.7"
-     - "3.7-dev"
-     - "3.6-dev"
+     - 3.7
 provider: script
 install: 
      - pip3 install --upgrade pip
