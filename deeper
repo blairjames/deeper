@@ -16,7 +16,7 @@ class Deeper:
         self.args = arg_parse_deeper.Argparse_Deeper()
         self.argparse = self.args.get_args()
         self.port = self.args.port
-        self.top_ports: int = 0
+        self.top_ports = 0
         self.open_ports: List = []
         self.pwd: str = getcwd()
         self.top_ten_list: List = ["21","22","23","25","80","110","139","143","443","445","3389"]
